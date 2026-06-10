@@ -55,3 +55,20 @@ The long-term target is a self-built premium golf app with:
 - AI caddie recommendations during the round
 
 The first useful version should prove the on-course workflow: GPS yardage, score tracking, basic shot logging, and a simple AI caddie prototype.
+
+## Local Prototype
+
+The first frontend prototype lives in `frontend/`.
+
+To run it locally:
+
+```powershell
+cd C:\Users\grube\OneDrive\Documents\Mercury\frontend
+npm run dev
+```
+
+Then open:
+
+```text
+http://127.0.0.1:5173/
+```

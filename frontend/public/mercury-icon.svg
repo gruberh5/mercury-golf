@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Mercury icon</title>
+  <rect width="512" height="512" rx="96" fill="#12372a"/>
+  <circle cx="256" cy="256" r="152" fill="#f3f0e8"/>
+  <path d="M172 314L241 145h41l58 169h-42l-11-36h-61l-13 36h-41zm64-70h41l-19-62-22 62z" fill="#12372a"/>
+  <path d="M169 359h174" stroke="#d49f45" stroke-width="28" stroke-linecap="round"/>
+</svg>

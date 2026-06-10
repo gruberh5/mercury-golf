@@ -1,1 +1,15 @@
 desktop.ini
+
+# Dependencies
+node_modules/
+
+# Frontend build output
+dist/
+*.tsbuildinfo
+
+# Local environment files
+.env
+.env.*
+
+# Local dev logs
+*.log

@@ -1,0 +1,17 @@
+{
+  "name": "Mercury Golf Intelligence",
+  "short_name": "Mercury",
+  "description": "Personal golf GPS, score tracking, shot tracking, analytics, and AI caddie.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f0e8",
+  "theme_color": "#12372a",
+  "icons": [
+    {
+      "src": "/mercury-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
