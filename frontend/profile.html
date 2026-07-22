@@ -30,6 +30,7 @@
 </head>
 <body>
 
+<a href="index.html" style="color:#3388ff; display:inline-block; margin-bottom:8px;">&larr; Map</a>
 <h1>Mercury Golf -- Profile</h1>
 
 <label>I am:</label>
@@ -114,6 +115,8 @@ function addClubRow(club) {
     <input class="club-model" value="${club.model || ''}">
     <label>Loft</label>
     <input class="club-loft" type="number" step="0.1" value="${club.loft ?? ''}">
+    <label>Typical yardage (how far this club normally goes for you)</label>
+    <input class="club-yardage" type="number" value="${club.typical_yardage ?? ''}">
     <label>Shaft model</label>
     <input class="club-shaft-model" value="${club.shaft_model || ''}">
     <label>Shaft flex</label>
@@ -254,6 +257,7 @@ document.getElementById('save-btn').addEventListener('click', async () => {
         manufacturer: row.querySelector('.club-manufacturer').value || null,
         model: row.querySelector('.club-model').value || null,
         loft: row.querySelector('.club-loft').value ? parseFloat(row.querySelector('.club-loft').value) : null,
+        typical_yardage: row.querySelector('.club-yardage').value ? parseInt(row.querySelector('.club-yardage').value) : null,
         shaft_model: row.querySelector('.club-shaft-model').value || null,
         shaft_flex: row.querySelector('.club-shaft-flex').value || null,
         notes: row.querySelector('.club-notes').value || null
