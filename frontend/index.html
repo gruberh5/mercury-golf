@@ -3,277 +3,43 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mercury</title>
-<script src="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js"></script>
-<link href="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css" rel="stylesheet">
-<script>
-  // ===================================================
-  // CONFIG -- paste your real values here (same as before)
-  // ===================================================
-  const MAPBOX_TOKEN = "pk.eyJ1IjoiaGdydWI1IiwiYSI6ImNtcnZlN3IyMjBoNXozMHEzYzA0bTJnMncifQ.Z2po4OoEzFiIXjK_XTnAJw";
-  const SUPABASE_URL = "https://qzkhficwcpicglywmcid.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_t2IT_8t6w8cYP5aipFHWVQ_ESPnRjKG";
-</script>
+<title>Mercury Golf</title>
 <style>
-  html, body { margin: 0; padding: 0; height: 100%; font-family: -apple-system, sans-serif; }
-  #controls { position: absolute; top: 0; left: 0; right: 0; z-index: 10; background: rgba(20,20,20,0.85); color: white; padding: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  #controls select { padding: 6px; border-radius: 6px; border: none; }
-  #view-toggle-btn { padding: 6px 12px; border-radius: 6px; border: none; background: #22cc55; color: white; font-weight: bold; }
-  #distance-panel { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10; background: rgba(20,20,20,0.85); color: white; padding: 14px 20px; border-radius: 12px; text-align: center; min-width: 200px; }
-  #distance-panel .raw { font-size: 40px; font-weight: bold; line-height: 1.1; }
-  #distance-panel .label { font-size: 13px; opacity: 0.8; margin-top: 2px; }
-  #distance-panel .adjusted { font-size: 16px; margin-top: 8px; opacity: 0.9; }
-  #map { position: absolute; top: 0; bottom: 0; left: 0; right: 0; }
-  #status { position: absolute; top: 60px; left: 10px; z-index: 10; color: white; font-size: 12px; background: rgba(20,20,20,0.7); padding: 6px 10px; border-radius: 6px; }
+  body {
+    font-family: -apple-system, sans-serif;
+    background: #111;
+    color: #eee;
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
+  }
+  h1 { font-size: 28px; margin-bottom: 4px; }
+  p { color: #999; margin-top: 0; margin-bottom: 32px; text-align: center; }
+  a.nav-btn {
+    display: block;
+    width: 260px;
+    max-width: 100%;
+    text-align: center;
+    padding: 16px;
+    border-radius: 10px;
+    font-weight: bold;
+    text-decoration: none;
+    margin-bottom: 14px;
+  }
+  a.profile-btn { background: #333; color: #eee; }
+  a.play-btn { background: #22cc55; color: white; }
 </style>
 </head>
 <body>
+  <h1>Mercury Golf</h1>
+  <p>Your course, your clubs, your caddie.</p>
 
-<div id="controls">
-  <select id="course-select"><option value="">Loading courses...</option></select>
-  <select id="course-select"><option value="">Loading courses...</option></select>
-  <select id="hole-select" disabled><option value="">Pick a course first</option></select>
-  <button id="view-toggle-btn">Approach View</button>
-</div>
-
-<div id="status"></div>
-
-<div id="map"></div>
-
-<div id="distance-panel">
-  <div class="raw" id="raw-distance">--</div>
-  <div class="label">yards to green</div>
-  <div class="adjusted" id="adjusted-distance"></div>
-</div>
-
-<script>
-mapboxgl.accessToken = MAPBOX_TOKEN;
-
-const map = new mapboxgl.Map({
-  container: 'map',
-  style: 'mapbox://styles/mapbox/satellite-v9',
-  center: [-84.4569, 39.1031],
-  zoom: 16
-});
-
-let greenMarker = null;
-let playerMarker = null;
-let currentGreen = null;      // { lat, lon }
-let lastPlayerPos = null;     // { lat, lon }
-let lastFlownPos = null;      // last position we actually re-centered the map on
-let viewMode = 'hole';        // 'hole' or 'approach'
-let cachedElevDiffYards = null;
-let lastElevFetchTime = 0;
-
-// ---------------------------------------------------------
-// Math helpers
-// ---------------------------------------------------------
-function haversineMeters(lat1, lon1, lat2, lon2) {
-  const R = 6371000;
-  const toRad = d => d * Math.PI / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a = Math.sin(dLat / 2) ** 2 +
-            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(a));
-}
-
-function metersToYards(m) { return m * 1.09361; }
-
-function bearingDegrees(lat1, lon1, lat2, lon2) {
-  const toRad = d => d * Math.PI / 180;
-  const toDeg = r => r * 180 / Math.PI;
-  const dLon = toRad(lon2 - lon1);
-  const y = Math.sin(dLon) * Math.cos(toRad(lat2));
-  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
-            Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
-  return (toDeg(Math.atan2(y, x)) + 360) % 360;
-}
-
-// ---------------------------------------------------------
-// Elevation (Open-Elevation -- works for any point, no viewport dependency)
-// ---------------------------------------------------------
-async function fetchElevationDiffYards(playerLat, playerLon, greenLat, greenLon) {
-  try {
-    const url = `https://api.open-elevation.com/api/v1/lookup?locations=${playerLat},${playerLon}|${greenLat},${greenLon}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('Open-Elevation request failed');
-    const data = await res.json();
-    const playerElev = data.results[0].elevation;
-    const greenElev = data.results[1].elevation;
-    return metersToYards(greenElev - playerElev);
-  } catch (e) {
-    document.getElementById('status').textContent = 'Elevation lookup failed: ' + e.message;
-    return null;
-  }
-}
-
-// ---------------------------------------------------------
-// Distance + elevation display
-// ---------------------------------------------------------
-async function updateDistanceDisplay() {
-  if (!currentGreen || !lastPlayerPos) return;
-
-  const rawMeters = haversineMeters(lastPlayerPos.lat, lastPlayerPos.lon, currentGreen.lat, currentGreen.lon);
-  const rawYards = metersToYards(rawMeters);
-  document.getElementById('raw-distance').textContent = Math.round(rawYards);
-
-  // Only refetch elevation every 30s (or if we have none yet) -- no need to
-  // hammer the API on every single GPS tick, elevation doesn't change that fast.
-  const now = Date.now();
-  if (cachedElevDiffYards === null || now - lastElevFetchTime > 30000) {
-    lastElevFetchTime = now;
-    cachedElevDiffYards = await fetchElevationDiffYards(
-      lastPlayerPos.lat, lastPlayerPos.lon, currentGreen.lat, currentGreen.lon
-    );
-  }
-
-  const adjustedEl = document.getElementById('adjusted-distance');
-  if (cachedElevDiffYards != null) {
-    const adjustedYards = rawYards + cachedElevDiffYards;
-    const direction = cachedElevDiffYards > 1 ? 'uphill' : cachedElevDiffYards < -1 ? 'downhill' : 'flat';
-    adjustedEl.textContent = `plays like ${Math.round(adjustedYards)} (${direction})`;
-  } else {
-    adjustedEl.textContent = '';
-  }
-}
-
-// ---------------------------------------------------------
-// Map view: auto-center + orient toward the green
-// ---------------------------------------------------------
-
-function updateMapView(force) {
-  if (!currentGreen || !lastPlayerPos) return;
-
-  if (!force && lastFlownPos) {
-    const movedMeters = haversineMeters(lastPlayerPos.lat, lastPlayerPos.lon, lastFlownPos.lat, lastFlownPos.lon);
-    if (movedMeters < 15) return;
-  }
-
-  const bearing = bearingDegrees(lastPlayerPos.lat, lastPlayerPos.lon, currentGreen.lat, currentGreen.lon);
-
-  if (viewMode === 'approach') {
-    map.easeTo({ center: [currentGreen.lon, currentGreen.lat], zoom: 19, bearing, duration: 1000 });
-  } else {
-    const bounds = new mapboxgl.LngLatBounds()
-      .extend([lastPlayerPos.lon, lastPlayerPos.lat])
-      .extend([currentGreen.lon, currentGreen.lat]);
-    map.fitBounds(bounds, { padding: 80, bearing, duration: 1000, maxZoom: 18 });
-  }
-
-  lastFlownPos = { ...lastPlayerPos };
-}
-
-document.getElementById('view-toggle-btn').addEventListener('click', () => {
-  viewMode = viewMode === 'hole' ? 'approach' : 'hole';
-  document.getElementById('view-toggle-btn').textContent = viewMode === 'hole' ? 'Approach View' : 'Hole View';
-  updateMapView(true); // force, ignore the "haven't moved enough" throttle
-});
-
-// ---------------------------------------------------------
-// Live GPS
-// ---------------------------------------------------------
-function onPosition(position) {
-  lastPlayerPos = { lat: position.coords.latitude, lon: position.coords.longitude };
-
-  if (!playerMarker) {
-    playerMarker = new mapboxgl.Marker({ color: '#3388ff' })
-      .setLngLat([lastPlayerPos.lon, lastPlayerPos.lat]).addTo(map);
-  } else {
-    playerMarker.setLngLat([lastPlayerPos.lon, lastPlayerPos.lat]);
-  }
-
-  updateDistanceDisplay();
-  updateMapView(false);
-}
-
-function onPositionError(err) {
-  document.getElementById('status').textContent = 'GPS error: ' + err.message;
-}
-
-if (navigator.geolocation) {
-  navigator.geolocation.watchPosition(onPosition, onPositionError, {
-    enableHighAccuracy: true,
-    maximumAge: 1000
-  });
-} else {
-  document.getElementById('status').textContent = 'Geolocation not supported on this device.';
-}
-
-// ---------------------------------------------------------
-// Supabase: populate course + hole dropdowns
-// ---------------------------------------------------------
-async function supabaseGet(path) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
-  });
-  if (!res.ok) throw new Error(`Supabase request failed: ${res.status}`);
-  return res.json();
-}
-
-const courseSelect = document.getElementById('course-select');
-const holeSelect = document.getElementById('hole-select');
-
-async function loadCourses() {
-  try {
-    const courses = await supabaseGet('courses?select=course_id,course_name&order=course_name');
-    courseSelect.innerHTML = '<option value="">Select a course</option>';
-    courses.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.course_id;
-      opt.textContent = c.course_name;
-      courseSelect.appendChild(opt);
-    });
-  } catch (e) {
-    document.getElementById('status').textContent = 'Failed to load courses: ' + e.message;
-  }
-}
-
-async function loadHoles(courseId) {
-  holeSelect.disabled = true;
-  holeSelect.innerHTML = '<option value="">Loading holes...</option>';
-  try {
-    const holes = await supabaseGet(
-      `holes?course_id=eq.${courseId}&select=hole_id,hole_number,par,green_lat,green_lon&order=hole_number`
-    );
-    holeSelect.innerHTML = '<option value="">Select a hole</option>';
-    holes.forEach(h => {
-      const opt = document.createElement('option');
-      opt.value = h.hole_id;
-      opt.textContent = `Hole ${h.hole_number} (par ${h.par})`;
-      opt.dataset.lat = h.green_lat;
-      opt.dataset.lon = h.green_lon;
-      holeSelect.appendChild(opt);
-    });
-    holeSelect.disabled = false;
-  } catch (e) {
-    document.getElementById('status').textContent = 'Failed to load holes: ' + e.message;
-  }
-}
-
-courseSelect.addEventListener('change', () => {
-  if (courseSelect.value) loadHoles(courseSelect.value);
-});
-
-holeSelect.addEventListener('change', () => {
-  const opt = holeSelect.selectedOptions[0];
-  if (!opt || !opt.dataset.lat) return;
-
-  currentGreen = { lat: parseFloat(opt.dataset.lat), lon: parseFloat(opt.dataset.lon) };
-  cachedElevDiffYards = null; // force a fresh elevation fetch for the new hole
-
-  if (!greenMarker) {
-    greenMarker = new mapboxgl.Marker({ color: '#22cc55' })
-      .setLngLat([currentGreen.lon, currentGreen.lat]).addTo(map);
-  } else {
-    greenMarker.setLngLat([currentGreen.lon, currentGreen.lat]);
-  }
-
-  updateDistanceDisplay();
-  updateMapView(true); // force, this is a fresh hole regardless of movement
-});
-
-loadCourses();
-</script>
+  <a class="nav-btn play-btn" href="map.html">Play</a>
+  <a class="nav-btn profile-btn" href="profile.html">Player Profile</a>
 </body>
 </html>
