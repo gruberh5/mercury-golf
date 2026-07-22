@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mercury</title>
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js"></script>
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css" rel="stylesheet">
+<style>
+  /* ===================================================== */
+  /* CONFIG -- paste your real values here                  */
+  /* ===================================================== */
+</style>
+<script>
+  const MAPBOX_TOKEN = "pk.eyJ1IjoiaGdydWI1IiwiYSI6ImNtcnZjMWtoeTBsOW4yeHEwNG80cW1taGoifQ._NrS2u5scZt_O8AMqTjQUQ"
+;       // starts with pk.
+  const SUPABASE_URL = "https://qzkhficwcpicglywmcid.supabase.co"   // e.g. https://qzkhficwcpicglywmcid.supabase.co
+  const SUPABASE_KEY = "sb_publishable_t2IT_8t6w8cYP5aipFHWVQ_ESPnRjKG";
+</script>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; font-family: -apple-system, sans-serif; }
+  #controls { position: absolute; top: 0; left: 0; right: 0; z-index: 10; background: rgba(20,20,20,0.85); color: white; padding: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #controls select { padding: 6px; border-radius: 6px; border: none; }
+  #distance-panel { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10; background: rgba(20,20,20,0.85); color: white; padding: 14px 20px; border-radius: 12px; text-align: center; min-width: 200px; }
+  #distance-panel .raw { font-size: 40px; font-weight: bold; line-height: 1.1; }
+  #distance-panel .label { font-size: 13px; opacity: 0.8; margin-top: 2px; }
+  #distance-panel .adjusted { font-size: 16px; margin-top: 8px; opacity: 0.9; }
+  #map { position: absolute; top: 0; bottom: 0; left: 0; right: 0; }
+  #status { position: absolute; top: 60px; left: 10px; z-index: 10; color: white; font-size: 12px; background: rgba(20,20,20,0.7); padding: 6px 10px; border-radius: 6px; }
+</style>
+</head>
+<body>
+
+<div id="controls">
+  <select id="course-select"><option value="">Loading courses...</option></select>
+  <select id="hole-select" disabled><option value="">Pick a course first</option></select>
+</div>
+
+<div id="status"></div>
+
+<div id="map"></div>
+
+<div id="distance-panel">
+  <div class="raw" id="raw-distance">--</div>
+  <div class="label">yards to green</div>
+  <div class="adjusted" id="adjusted-distance"></div>
+</div>
+
+<script>
+mapboxgl.accessToken = MAPBOX_TOKEN;
+
+// ---------------------------------------------------------
+// Map setup
+// ---------------------------------------------------------
+const map = new mapboxgl.Map({
+  container: 'map',
+  style: 'mapbox://styles/mapbox/satellite-v9',
+  center: [-84.4569, 39.1031], // default: Cincinnati, re-centers once a hole is picked
+  zoom: 16
+});
+
+let greenMarker = null;
+let playerMarker = null;
+let currentGreen = null; // { lat, lon }
+let terrainReady = false;
+
+map.on('load', () => {
+  // Elevation source, used for downhill/uphill adjusted yardage
+  map.addSource('mapbox-dem', {
+    type: 'raster-dem',
+    url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+    tileSize: 512,
+    maxzoom: 14
+  });
+  map.setTerrain({ source: 'mapbox-dem', exaggeration: 1 });
+  terrainReady = true;
+});
+
+// ---------------------------------------------------------
+// Distance math (same formula as the Python import script)
+// ---------------------------------------------------------
+function haversineMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const toRad = deg => deg * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function metersToYards(m) {
+  return m * 1.09361;
+}
+
+function updateDistanceDisplay(playerLat, playerLon) {
+  if (!currentGreen) return;
+
+  const rawMeters = haversineMeters(playerLat, playerLon, currentGreen.lat, currentGreen.lon);
+  const rawYards = metersToYards(rawMeters);
+  document.getElementById('raw-distance').textContent = Math.round(rawYards);
+
+  const adjustedEl = document.getElementById('adjusted-distance');
+  if (terrainReady) {
+    const playerElev = map.queryTerrainElevation([playerLon, playerLat]);
+    const greenElev = map.queryTerrainElevation([currentGreen.lon, currentGreen.lat]);
+    if (playerElev != null && greenElev != null) {
+      const elevDiffYards = metersToYards(greenElev - playerElev);
+      const adjustedYards = rawYards + elevDiffYards;
+      const direction = elevDiffYards > 1 ? 'uphill' : elevDiffYards < -1 ? 'downhill' : 'flat';
+      adjustedEl.textContent = `plays like ${Math.round(adjustedYards)} (${direction})`;
+      return;
+    }
+  }
+  adjustedEl.textContent = '';
+}
+
+// ---------------------------------------------------------
+// Live GPS
+// ---------------------------------------------------------
+function onPosition(position) {
+  const lat = position.coords.latitude;
+  const lon = position.coords.longitude;
+
+  if (!playerMarker) {
+    playerMarker = new mapboxgl.Marker({ color: '#3388ff' }).setLngLat([lon, lat]).addTo(map);
+  } else {
+    playerMarker.setLngLat([lon, lat]);
+  }
+
+  updateDistanceDisplay(lat, lon);
+}
+
+function onPositionError(err) {
+  document.getElementById('status').textContent = 'GPS error: ' + err.message;
+}
+
+if (navigator.geolocation) {
+  navigator.geolocation.watchPosition(onPosition, onPositionError, {
+    enableHighAccuracy: true,
+    maximumAge: 1000
+  });
+} else {
+  document.getElementById('status').textContent = 'Geolocation not supported on this device.';
+}
+
+// ---------------------------------------------------------
+// Supabase: populate course + hole dropdowns
+// ---------------------------------------------------------
+async function supabaseGet(path) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`
+    }
+  });
+  if (!res.ok) throw new Error(`Supabase request failed: ${res.status}`);
+  return res.json();
+}
+
+const courseSelect = document.getElementById('course-select');
+const holeSelect = document.getElementById('hole-select');
+
+async function loadCourses() {
+  try {
+    const courses = await supabaseGet('courses?select=course_id,course_name&order=course_name');
+    courseSelect.innerHTML = '<option value="">Select a course</option>';
+    courses.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.course_id;
+      opt.textContent = c.course_name;
+      courseSelect.appendChild(opt);
+    });
+  } catch (e) {
+    document.getElementById('status').textContent = 'Failed to load courses: ' + e.message;
+  }
+}
+
+async function loadHoles(courseId) {
+  holeSelect.disabled = true;
+  holeSelect.innerHTML = '<option value="">Loading holes...</option>';
+  try {
+    const holes = await supabaseGet(
+      `holes?course_id=eq.${courseId}&select=hole_id,hole_number,par,green_lat,green_lon&order=hole_number`
+    );
+    holeSelect.innerHTML = '<option value="">Select a hole</option>';
+    holes.forEach(h => {
+      const opt = document.createElement('option');
+      opt.value = h.hole_id;
+      opt.textContent = `Hole ${h.hole_number} (par ${h.par})`;
+      opt.dataset.lat = h.green_lat;
+      opt.dataset.lon = h.green_lon;
+      holeSelect.appendChild(opt);
+    });
+    holeSelect.disabled = false;
+  } catch (e) {
+    document.getElementById('status').textContent = 'Failed to load holes: ' + e.message;
+  }
+}
+
+courseSelect.addEventListener('change', () => {
+  if (courseSelect.value) loadHoles(courseSelect.value);
+});
+
+holeSelect.addEventListener('change', () => {
+  const opt = holeSelect.selectedOptions[0];
+  if (!opt || !opt.dataset.lat) return;
+
+  const lat = parseFloat(opt.dataset.lat);
+  const lon = parseFloat(opt.dataset.lon);
+  currentGreen = { lat, lon };
+
+  map.flyTo({ center: [lon, lat], zoom: 17 });
+
+  if (!greenMarker) {
+    greenMarker = new mapboxgl.Marker({ color: '#22cc55' }).setLngLat([lon, lat]).addTo(map);
+  } else {
+    greenMarker.setLngLat([lon, lat]);
+  }
+});
+
+loadCourses();
+</script>
+</body>
+</html>

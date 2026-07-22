@@ -2,6 +2,9 @@ desktop.ini
 
 # Dependencies
 node_modules/
+.venv/
+__pycache__/
+*.py[cod]
 
 # Frontend build output
 dist/
@@ -10,6 +13,7 @@ dist/
 # Local environment files
 .env
 .env.*
+!.env.example
 
 # Local dev logs
 *.log

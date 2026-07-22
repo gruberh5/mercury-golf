@@ -72,3 +72,23 @@ Then open:
 ```text
 http://127.0.0.1:5173/
 ```
+
+## Python/Postgres Smoke Test
+
+The first Python backend smoke test lives in `backend/`.
+
+To connect Python to your local Postgres database and read the `clubs` table:
+
+```powershell
+cd C:\Users\grube\OneDrive\Documents\Mercury
+python -m venv .venv
+.\.venv\Scripts\python -m pip install -r backend\requirements.txt
+Copy-Item backend\.env.example backend\.env
+.\.venv\Scripts\python -m backend.read_clubs
+```
+
+Edit `backend\.env` if your local Postgres connection is not:
+
+```text
+postgresql://postgres:postgres@localhost:5432/mercury
+```
