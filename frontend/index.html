@@ -6,21 +6,19 @@
 <title>Mercury</title>
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js"></script>
 <link href="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css" rel="stylesheet">
-<style>
-  /* ===================================================== */
-  /* CONFIG -- paste your real values here                  */
-  /* ===================================================== */
-</style>
 <script>
-  const MAPBOX_TOKEN = "pk.eyJ1IjoiaGdydWI1IiwiYSI6ImNtcnZlN3IyMjBoNXozMHEzYzA0bTJnMncifQ.Z2po4OoEzFiIXjK_XTnAJw"
-;       // starts with pk.
-  const SUPABASE_URL = "https://qzkhficwcpicglywmcid.supabase.co"   // e.g. https://qzkhficwcpicglywmcid.supabase.co
+  // ===================================================
+  // CONFIG -- paste your real values here (same as before)
+  // ===================================================
+  const MAPBOX_TOKEN = "pk.eyJ1IjoiaGdydWI1IiwiYSI6ImNtcnZlN3IyMjBoNXozMHEzYzA0bTJnMncifQ.Z2po4OoEzFiIXjK_XTnAJw";
+  const SUPABASE_URL = "postgresql://postgres:Goombah123...@db.qzkhficwcpicglywmcid.supabase.co:5432/postgres";
   const SUPABASE_KEY = "sb_publishable_t2IT_8t6w8cYP5aipFHWVQ_ESPnRjKG";
 </script>
 <style>
   html, body { margin: 0; padding: 0; height: 100%; font-family: -apple-system, sans-serif; }
   #controls { position: absolute; top: 0; left: 0; right: 0; z-index: 10; background: rgba(20,20,20,0.85); color: white; padding: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   #controls select { padding: 6px; border-radius: 6px; border: none; }
+  #view-toggle-btn { padding: 6px 12px; border-radius: 6px; border: none; background: #22cc55; color: white; font-weight: bold; }
   #distance-panel { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10; background: rgba(20,20,20,0.85); color: white; padding: 14px 20px; border-radius: 12px; text-align: center; min-width: 200px; }
   #distance-panel .raw { font-size: 40px; font-weight: bold; line-height: 1.1; }
   #distance-panel .label { font-size: 13px; opacity: 0.8; margin-top: 2px; }
@@ -34,6 +32,7 @@
 <div id="controls">
   <select id="course-select"><option value="">Loading courses...</option></select>
   <select id="hole-select" disabled><option value="">Pick a course first</option></select>
+  <button id="view-toggle-btn">Approach View</button>
 </div>
 
 <div id="status"></div>
@@ -49,39 +48,28 @@
 <script>
 mapboxgl.accessToken = MAPBOX_TOKEN;
 
-// ---------------------------------------------------------
-// Map setup
-// ---------------------------------------------------------
 const map = new mapboxgl.Map({
   container: 'map',
   style: 'mapbox://styles/mapbox/satellite-v9',
-  center: [-84.4569, 39.1031], // default: Cincinnati, re-centers once a hole is picked
+  center: [-84.4569, 39.1031],
   zoom: 16
 });
 
 let greenMarker = null;
 let playerMarker = null;
-let currentGreen = null; // { lat, lon }
-let terrainReady = false;
-
-map.on('load', () => {
-  // Elevation source, used for downhill/uphill adjusted yardage
-  map.addSource('mapbox-dem', {
-    type: 'raster-dem',
-    url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
-    tileSize: 512,
-    maxzoom: 14
-  });
-  map.setTerrain({ source: 'mapbox-dem', exaggeration: 1 });
-  terrainReady = true;
-});
+let currentGreen = null;      // { lat, lon }
+let lastPlayerPos = null;     // { lat, lon }
+let lastFlownPos = null;      // last position we actually re-centered the map on
+let viewMode = 'hole';        // 'hole' or 'approach'
+let cachedElevDiffYards = null;
+let lastElevFetchTime = 0;
 
 // ---------------------------------------------------------
-// Distance math (same formula as the Python import script)
+// Math helpers
 // ---------------------------------------------------------
 function haversineMeters(lat1, lon1, lat2, lon2) {
   const R = 6371000;
-  const toRad = deg => deg * Math.PI / 180;
+  const toRad = d => d * Math.PI / 180;
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
   const a = Math.sin(dLat / 2) ** 2 +
@@ -89,46 +77,123 @@ function haversineMeters(lat1, lon1, lat2, lon2) {
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 
-function metersToYards(m) {
-  return m * 1.09361;
+function metersToYards(m) { return m * 1.09361; }
+
+function bearingDegrees(lat1, lon1, lat2, lon2) {
+  const toRad = d => d * Math.PI / 180;
+  const toDeg = r => r * 180 / Math.PI;
+  const dLon = toRad(lon2 - lon1);
+  const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+            Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
 
-function updateDistanceDisplay(playerLat, playerLon) {
-  if (!currentGreen) return;
+// ---------------------------------------------------------
+// Elevation (Open-Elevation -- works for any point, no viewport dependency)
+// ---------------------------------------------------------
+async function fetchElevationDiffYards(playerLat, playerLon, greenLat, greenLon) {
+  try {
+    const url = `https://api.open-elevation.com/api/v1/lookup?locations=${playerLat},${playerLon}|${greenLat},${greenLon}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Open-Elevation request failed');
+    const data = await res.json();
+    const playerElev = data.results[0].elevation;
+    const greenElev = data.results[1].elevation;
+    return metersToYards(greenElev - playerElev);
+  } catch (e) {
+    document.getElementById('status').textContent = 'Elevation lookup failed: ' + e.message;
+    return null;
+  }
+}
 
-  const rawMeters = haversineMeters(playerLat, playerLon, currentGreen.lat, currentGreen.lon);
+// ---------------------------------------------------------
+// Distance + elevation display
+// ---------------------------------------------------------
+async function updateDistanceDisplay() {
+  if (!currentGreen || !lastPlayerPos) return;
+
+  const rawMeters = haversineMeters(lastPlayerPos.lat, lastPlayerPos.lon, currentGreen.lat, currentGreen.lon);
   const rawYards = metersToYards(rawMeters);
   document.getElementById('raw-distance').textContent = Math.round(rawYards);
 
-  const adjustedEl = document.getElementById('adjusted-distance');
-  if (terrainReady) {
-    const playerElev = map.queryTerrainElevation([playerLon, playerLat]);
-    const greenElev = map.queryTerrainElevation([currentGreen.lon, currentGreen.lat]);
-    if (playerElev != null && greenElev != null) {
-      const elevDiffYards = metersToYards(greenElev - playerElev);
-      const adjustedYards = rawYards + elevDiffYards;
-      const direction = elevDiffYards > 1 ? 'uphill' : elevDiffYards < -1 ? 'downhill' : 'flat';
-      adjustedEl.textContent = `plays like ${Math.round(adjustedYards)} (${direction})`;
-      return;
-    }
+  // Only refetch elevation every 30s (or if we have none yet) -- no need to
+  // hammer the API on every single GPS tick, elevation doesn't change that fast.
+  const now = Date.now();
+  if (cachedElevDiffYards === null || now - lastElevFetchTime > 30000) {
+    lastElevFetchTime = now;
+    cachedElevDiffYards = await fetchElevationDiffYards(
+      lastPlayerPos.lat, lastPlayerPos.lon, currentGreen.lat, currentGreen.lon
+    );
   }
-  adjustedEl.textContent = '';
+
+  const adjustedEl = document.getElementById('adjusted-distance');
+  if (cachedElevDiffYards != null) {
+    const adjustedYards = rawYards + cachedElevDiffYards;
+    const direction = cachedElevDiffYards > 1 ? 'uphill' : cachedElevDiffYards < -1 ? 'downhill' : 'flat';
+    adjustedEl.textContent = `plays like ${Math.round(adjustedYards)} (${direction})`;
+  } else {
+    adjustedEl.textContent = '';
+  }
 }
+
+// ---------------------------------------------------------
+// Map view: auto-center + orient toward the green
+// ---------------------------------------------------------
+function pickHoleViewZoom(distanceMeters) {
+  if (distanceMeters > 400) return 15;
+  if (distanceMeters > 200) return 16;
+  return 17;
+}
+
+function updateMapView(force) {
+  if (!currentGreen || !lastPlayerPos) return;
+
+  if (!force && lastFlownPos) {
+    const movedMeters = haversineMeters(lastPlayerPos.lat, lastPlayerPos.lon, lastFlownPos.lat, lastFlownPos.lon);
+    if (movedMeters < 15) return; // hasn't moved enough to bother re-centering
+  }
+
+  const bearing = bearingDegrees(lastPlayerPos.lat, lastPlayerPos.lon, currentGreen.lat, currentGreen.lon);
+  const distMeters = haversineMeters(lastPlayerPos.lat, lastPlayerPos.lon, currentGreen.lat, currentGreen.lon);
+
+  let center, zoom;
+  if (viewMode === 'approach') {
+    center = [currentGreen.lon, currentGreen.lat];
+    zoom = 19;
+  } else {
+    center = [
+      (lastPlayerPos.lon + currentGreen.lon) / 2,
+      (lastPlayerPos.lat + currentGreen.lat) / 2
+    ];
+    zoom = pickHoleViewZoom(distMeters);
+  }
+
+  map.easeTo({ center, zoom, bearing, duration: 1000 });
+  lastFlownPos = { ...lastPlayerPos };
+}
+
+document.getElementById('view-toggle-btn').addEventListener('click', () => {
+  viewMode = viewMode === 'hole' ? 'approach' : 'hole';
+  document.getElementById('view-toggle-btn').textContent = viewMode === 'hole' ? 'Approach View' : 'Hole View';
+  updateMapView(true); // force, ignore the "haven't moved enough" throttle
+});
 
 // ---------------------------------------------------------
 // Live GPS
 // ---------------------------------------------------------
 function onPosition(position) {
-  const lat = position.coords.latitude;
-  const lon = position.coords.longitude;
+  lastPlayerPos = { lat: position.coords.latitude, lon: position.coords.longitude };
 
   if (!playerMarker) {
-    playerMarker = new mapboxgl.Marker({ color: '#3388ff' }).setLngLat([lon, lat]).addTo(map);
+    playerMarker = new mapboxgl.Marker({ color: '#3388ff' })
+      .setLngLat([lastPlayerPos.lon, lastPlayerPos.lat]).addTo(map);
   } else {
-    playerMarker.setLngLat([lon, lat]);
+    playerMarker.setLngLat([lastPlayerPos.lon, lastPlayerPos.lat]);
   }
 
-  updateDistanceDisplay(lat, lon);
+  updateDistanceDisplay();
+  updateMapView(false);
 }
 
 function onPositionError(err) {
@@ -149,10 +214,7 @@ if (navigator.geolocation) {
 // ---------------------------------------------------------
 async function supabaseGet(path) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`
-    }
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
   });
   if (!res.ok) throw new Error(`Supabase request failed: ${res.status}`);
   return res.json();
@@ -206,17 +268,18 @@ holeSelect.addEventListener('change', () => {
   const opt = holeSelect.selectedOptions[0];
   if (!opt || !opt.dataset.lat) return;
 
-  const lat = parseFloat(opt.dataset.lat);
-  const lon = parseFloat(opt.dataset.lon);
-  currentGreen = { lat, lon };
-
-  map.flyTo({ center: [lon, lat], zoom: 17 });
+  currentGreen = { lat: parseFloat(opt.dataset.lat), lon: parseFloat(opt.dataset.lon) };
+  cachedElevDiffYards = null; // force a fresh elevation fetch for the new hole
 
   if (!greenMarker) {
-    greenMarker = new mapboxgl.Marker({ color: '#22cc55' }).setLngLat([lon, lat]).addTo(map);
+    greenMarker = new mapboxgl.Marker({ color: '#22cc55' })
+      .setLngLat([currentGreen.lon, currentGreen.lat]).addTo(map);
   } else {
-    greenMarker.setLngLat([lon, lat]);
+    greenMarker.setLngLat([currentGreen.lon, currentGreen.lat]);
   }
+
+  updateDistanceDisplay();
+  updateMapView(true); // force, this is a fresh hole regardless of movement
 });
 
 loadCourses();

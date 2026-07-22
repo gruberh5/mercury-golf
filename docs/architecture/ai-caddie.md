@@ -106,3 +106,21 @@ Later versions can use:
 The AI caddie should explain why it recommends something.
 
 The explanation is part of the product, not an extra feature.
+
+### Implementation mechanism (not yet decided until now)
+
+Rather than hand-coding these as rigid if/then rules, the plan is a
+direct LLM API call (e.g. Claude): assemble the inputs above into a
+structured prompt, let the model reason through them in plain language.
+This naturally supports the "explain why" requirement above, degrades
+gracefully with sparse player data (a rules engine would need explicit
+handling for every missing field; an LLM can reason around gaps), and
+keeps the tone collaborative rather than a rigid lookup table.
+
+MCP is not needed for this. MCP is for open-ended tool selection when
+you don't know in advance what a model will need to look up. Here, the
+inputs are fixed and known ahead of time -- our own backend gathers
+them via normal queries and hands them to the model in one call. MCP
+would add protocol complexity with no benefit at this stage. Revisit
+only if the caddie becomes genuinely conversational (the golfer asks
+follow-ups, the model decides what else to check).
