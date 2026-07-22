@@ -140,36 +140,26 @@ async function updateDistanceDisplay() {
 // ---------------------------------------------------------
 // Map view: auto-center + orient toward the green
 // ---------------------------------------------------------
-function pickHoleViewZoom(distanceMeters) {
-  if (distanceMeters > 400) return 15;
-  if (distanceMeters > 200) return 16;
-  return 17;
-}
 
 function updateMapView(force) {
   if (!currentGreen || !lastPlayerPos) return;
 
   if (!force && lastFlownPos) {
     const movedMeters = haversineMeters(lastPlayerPos.lat, lastPlayerPos.lon, lastFlownPos.lat, lastFlownPos.lon);
-    if (movedMeters < 15) return; // hasn't moved enough to bother re-centering
+    if (movedMeters < 15) return;
   }
 
   const bearing = bearingDegrees(lastPlayerPos.lat, lastPlayerPos.lon, currentGreen.lat, currentGreen.lon);
-  const distMeters = haversineMeters(lastPlayerPos.lat, lastPlayerPos.lon, currentGreen.lat, currentGreen.lon);
 
-  let center, zoom;
   if (viewMode === 'approach') {
-    center = [currentGreen.lon, currentGreen.lat];
-    zoom = 19;
+    map.easeTo({ center: [currentGreen.lon, currentGreen.lat], zoom: 19, bearing, duration: 1000 });
   } else {
-    center = [
-      (lastPlayerPos.lon + currentGreen.lon) / 2,
-      (lastPlayerPos.lat + currentGreen.lat) / 2
-    ];
-    zoom = pickHoleViewZoom(distMeters);
+    const bounds = new mapboxgl.LngLatBounds()
+      .extend([lastPlayerPos.lon, lastPlayerPos.lat])
+      .extend([currentGreen.lon, currentGreen.lat]);
+    map.fitBounds(bounds, { padding: 80, bearing, duration: 1000, maxZoom: 18 });
   }
 
-  map.easeTo({ center, zoom, bearing, duration: 1000 });
   lastFlownPos = { ...lastPlayerPos };
 }
 
