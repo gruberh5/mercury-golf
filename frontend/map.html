@@ -140,6 +140,7 @@
   <div id="score-sheet-backdrop"></div>
   <div id="scorecard-sheet">
     <h3><span>Scorecard</span><span class="close-x" id="close-scorecard-btn">&times;</span></h3>
+    <div id="scorecard-course-info" style="font-size:12px; color:var(--text-faint); margin:-8px 0 14px;"></div>
     <div class="scorecard-wrap"><div id="scorecard-table"></div></div>
   </div>
   <div id="score-sheet">
@@ -505,23 +506,38 @@ document.getElementById('score-sheet-backdrop').addEventListener('click', () => 
 
 async function openScorecard() {
   const tableEl = document.getElementById('scorecard-table');
+  const infoEl = document.getElementById('scorecard-course-info');
   tableEl.innerHTML = 'Loading...';
+  infoEl.textContent = '';
   document.getElementById('scorecard-sheet').classList.add('open');
   document.getElementById('score-sheet-backdrop').classList.add('open');
 
   try {
-    const scores = await supabaseRequest('GET', `hole_scores?round_id=eq.${roundId}&select=hole_id,score,putts`);
+    const [scores, teeHoles, teeInfo] = await Promise.all([
+      supabaseRequest('GET', `hole_scores?round_id=eq.${roundId}&select=hole_id,score,putts`),
+      supabaseRequest('GET', `tee_holes?tee_id=eq.${lockedTeeId}&select=hole_id,yardage,handicap_index`),
+      supabaseRequest('GET', `tees?tee_id=eq.${lockedTeeId}&select=total_yards,slope_rating,course_rating`)
+    ]);
+
     const scoreByHole = {};
     scores.forEach(s => { scoreByHole[s.hole_id] = s; });
+    const teeHoleByHole = {};
+    teeHoles.forEach(t => { teeHoleByHole[t.hole_id] = t; });
+
+    const tee = teeInfo[0];
+    infoEl.textContent = `${tee.total_yards} yds \u00b7 Slope ${tee.slope_rating} \u00b7 Rating ${tee.course_rating}`;
 
     let parTotal = 0, scoreTotal = 0, playedCount = 0;
-    let holeHeaderCells = '', parCells = '', scoreCells = '';
+    let holeHeaderCells = '', yardsCells = '', parCells = '', hcpCells = '', scoreCells = '';
 
     holeOrder.forEach(h => {
       const s = scoreByHole[h.hole_id];
+      const th = teeHoleByHole[h.hole_id];
       parTotal += h.par;
       holeHeaderCells += `<th>${h.hole_number}</th>`;
+      yardsCells += `<td>${th ? th.yardage : '--'}</td>`;
       parCells += `<td>${h.par}</td>`;
+      hcpCells += `<td>${th ? th.handicap_index : '--'}</td>`;
       if (s) { scoreTotal += s.score; playedCount++; }
       scoreCells += `<td>${s ? s.score : '--'}</td>`;
     });
@@ -533,7 +549,9 @@ async function openScorecard() {
     tableEl.innerHTML = `
       <table class="scorecard-table">
         <tr><th class="sc-label-col">Hole</th>${holeHeaderCells}<th class="sc-total-col">Total</th></tr>
+        <tr><td class="sc-label-col">Yards</td>${yardsCells}<td class="sc-total-col">${tee.total_yards}</td></tr>
         <tr><td class="sc-label-col">Par</td>${parCells}<td class="sc-total-col">${parTotal}</td></tr>
+        <tr><td class="sc-label-col">Hcp</td>${hcpCells}<td class="sc-total-col"></td></tr>
         <tr><td class="sc-label-col">Score</td>${scoreCells}<td class="sc-total-col">${playedCount > 0 ? scoreTotal + ' (' + toParStr + ')' : '--'}</td></tr>
       </table>
     `;
