@@ -4,42 +4,146 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mercury Golf</title>
+<link rel="icon" type="image/svg+xml" href="logo/mercury-icon.svg">
+<link rel="apple-touch-icon" href="logo/apple-touch-icon.png">
+<link rel="stylesheet" href="mercury-theme.css">
+<script>
+  const SUPABASE_URL = "https://qzkhficwcpicglywmcid.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_t2IT_8t6w8cYP5aipFHWVQ_ESPnRjKG";
+</script>
 <style>
-  body {
-    font-family: -apple-system, sans-serif;
-    background: #111;
-    color: #eee;
-    margin: 0;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    box-sizing: border-box;
-  }
-  h1 { font-size: 28px; margin-bottom: 4px; }
-  p { color: #999; margin-top: 0; margin-bottom: 32px; text-align: center; }
-  a.nav-btn {
-    display: block;
-    width: 260px;
-    max-width: 100%;
-    text-align: center;
-    padding: 16px;
-    border-radius: 10px;
-    font-weight: bold;
-    text-decoration: none;
-    margin-bottom: 14px;
-  }
-  a.profile-btn { background: #333; color: #eee; }
-  a.play-btn { background: #22cc55; color: white; }
+  body { padding: 24px 22px 100px; min-height: 100vh; }
+  h1 { font-size: 26px; font-weight: 700; margin: 4px 0 2px; }
+  .sub { color: var(--text-muted); font-size: 13px; margin-bottom: 22px; }
+  .cta-card { margin-bottom: 18px; }
+  .cta-card h2 { font-size: 16px; margin: 0 0 4px; }
+  .cta-card p { font-size: 12.5px; color: var(--text-muted); margin: 0 0 14px; }
+  .stat-tiles { display: flex; gap: 12px; margin-bottom: 22px; }
+  .stat-tile { flex: 1; }
+  .stat-tile .num { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .no-player { text-align: center; padding: 40px 20px; }
+  .no-player a { color: var(--accent-soft); }
 </style>
 </head>
 <body>
-  <h1>Mercury Golf</h1>
-  <p>Your course, your clubs, your caddie.</p>
 
-  <a class="nav-btn play-btn" href="map.html">Play</a>
-  <a class="nav-btn profile-btn" href="profile.html">Player Profile</a>
+<div id="content">Loading...</div>
+
+<div class="mercury-tabbar mercury-glass">
+  <a href="index.html" class="mercury-tab active">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 8l7-5 7 5"/><path d="M5 8v8h10V8"/></svg>
+    Home
+  </a>
+  <a href="stats.html" class="mercury-tab">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 16V9M10 16V4M16 16v-5"/></svg>
+    Stats
+  </a>
+  <a href="map.html" class="mercury-tab-fab">
+    <div class="fab-circle"><svg width="22" height="22" viewBox="0 0 22 22" fill="#0e1620"><path d="M7 4l11 7-11 7z"/></svg></div>
+    <span>Play</span>
+  </a>
+  <a href="rounds.html" class="mercury-tab">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h12M4 10h12M4 15h12"/></svg>
+    Rounds
+  </a>
+  <a href="profile.html" class="mercury-tab">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="7" r="3.2"/><path d="M4 17c0-3.3 2.7-5 6-5s6 1.7 6 5"/></svg>
+    Profile
+  </a>
+</div>
+
+<script>
+async function supabaseGet(path) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+  });
+  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+  return res.json();
+}
+
+function greetingWord() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
+async function render() {
+  const playerId = localStorage.getItem('mercuryPlayerId');
+  const playerName = localStorage.getItem('mercuryPlayerName');
+  const content = document.getElementById('content');
+
+  if (!playerId) {
+    content.innerHTML = `
+      <div class="no-player">
+        <h1>Mercury Golf</h1>
+        <p class="sub">Your course, your clubs, your caddie.</p>
+        <p>No profile selected yet. <a href="profile.html">Set up your profile</a> to get started.</p>
+      </div>
+    `;
+    return;
+  }
+
+  content.innerHTML = `<h1>${greetingWord()}, ${playerName}</h1><p class="sub">Loading your stats...</p>`;
+
+  try {
+    const player = (await supabaseGet(`players?player_id=eq.${playerId}&select=handicap`))[0];
+    const rounds = await supabaseGet(`rounds?player_id=eq.${playerId}&select=round_id,tee_id,played_at&order=played_at.desc`);
+
+    let totalScore = 0, roundCount = rounds.length, bestScore = null;
+    const roundSummaries = [];
+
+    for (const round of rounds.slice(0, 5)) {
+      const holeScores = await supabaseGet(`hole_scores?round_id=eq.${round.round_id}&select=score`);
+      const sum = holeScores.reduce((a, h) => a + (h.score || 0), 0);
+      if (holeScores.length > 0) {
+        totalScore += sum;
+        if (bestScore === null || sum < bestScore) bestScore = sum;
+      }
+      const tee = (await supabaseGet(`tees?tee_id=eq.${round.tee_id}&select=course_id`))[0];
+      const course = (await supabaseGet(`courses?course_id=eq.${tee.course_id}&select=course_name`))[0];
+      roundSummaries.push({ courseName: course.course_name, date: round.played_at, score: sum });
+    }
+
+    const avgScore = roundCount > 0 && totalScore > 0 ? Math.round(totalScore / roundSummaries.filter(r => r.score > 0).length) : '--';
+
+    let roundsHtml = roundSummaries.map(r => `
+      <div class="mercury-card" style="margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-weight:700; font-size:14px;">${r.courseName}</div>
+            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">${new Date(r.date).toLocaleDateString()}</div>
+          </div>
+          <div style="font-weight:700; font-size:22px;">${r.score || '--'}</div>
+        </div>
+      </div>
+    `).join('');
+
+    content.innerHTML = `
+      <h1>${greetingWord()}, ${playerName}</h1>
+      <p class="sub">${new Date().toLocaleDateString(undefined, { weekday: 'long' })}</p>
+
+      <div class="mercury-card cta-card">
+        <h2>Tee it up</h2>
+        <p>GPS yardages, shot tracking, and your caddie for all 18.</p>
+        <a href="map.html?player_id=${playerId}" class="mercury-btn-primary" style="display:block; text-align:center; text-decoration:none;">Start a round &rarr;</a>
+      </div>
+
+      <div class="stat-tiles">
+        <div class="mercury-card stat-tile"><div class="num">${player.handicap ?? '--'}</div><div class="mercury-label">Handicap</div></div>
+        <div class="mercury-card stat-tile"><div class="num">${roundCount}</div><div class="mercury-label">Rounds</div></div>
+        <div class="mercury-card stat-tile"><div class="num">${avgScore}</div><div class="mercury-label">Avg score</div></div>
+      </div>
+
+      <div class="mercury-label" style="margin-bottom:10px;">Recent rounds</div>
+      ${roundsHtml || '<p style="color:var(--text-muted); font-size:13px;">No rounds logged yet.</p>'}
+    `;
+  } catch (e) {
+    content.innerHTML = `<p style="color:#f88;">Failed to load: ${e.message}</p>`;
+  }
+}
+
+render();
+</script>
 </body>
 </html>

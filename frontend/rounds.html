@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mercury -- Rounds</title>
+<link rel="icon" type="image/svg+xml" href="logo/mercury-icon.svg">
+<link rel="apple-touch-icon" href="logo/apple-touch-icon.png">
+<link rel="stylesheet" href="mercury-theme.css">
+<style>
+  body { padding: 24px 22px 100px; min-height: 100vh; display: flex; flex-direction: column; }
+  h1 { font-size: 26px; font-weight: 700; margin: 4px 0 30px; }
+  .coming-soon { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .coming-soon .badge { font-size: 12px; font-weight: 600; letter-spacing: .05em; color: var(--accent-soft); background: rgba(95,159,212,.12); padding: 6px 14px; border-radius: 20px; margin-bottom: 14px; }
+  .coming-soon p { color: var(--text-muted); font-size: 14px; max-width: 260px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<h1>Rounds</h1>
+<div class="coming-soon">
+  <div class="badge">Coming soon</div>
+  <p>Rounds is being built next -- real data, real insights, on the way.</p>
+</div>
+
+<div class="mercury-tabbar mercury-glass" style="background:var(--panel);">
+  <a href="index.html" class="mercury-tab">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 8l7-5 7 5"/><path d="M5 8v8h10V8"/></svg>
+    Home
+  </a>
+  <a href="stats.html" class="mercury-tab ">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 16V9M10 16V4M16 16v-5"/></svg>
+    Stats
+  </a>
+  <a href="map.html" class="mercury-tab-fab">
+    <div class="fab-circle"><svg width="22" height="22" viewBox="0 0 22 22" fill="#0e1620"><path d="M7 4l11 7-11 7z"/></svg></div>
+    <span>Play</span>
+  </a>
+  <a href="rounds.html" class="mercury-tab active">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h12M4 10h12M4 15h12"/></svg>
+    Rounds
+  </a>
+  <a href="profile.html" class="mercury-tab">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="7" r="3.2"/><path d="M4 17c0-3.3 2.7-5 6-5s6 1.7 6 5"/></svg>
+    Profile
+  </a>
+</div>
+</body>
+</html>

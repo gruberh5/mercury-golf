@@ -1,0 +1,108 @@
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap');
+
+:root {
+  --accent: #5f9fd4;
+  --accent-soft: #95c0e3;
+  --bg: #22272e;
+  --panel: rgba(30,35,42,.86);
+  --text: #ffffff;
+  --text-muted: rgba(255,255,255,.5);
+  --text-faint: rgba(255,255,255,.45);
+  --on-accent: #0e1620;
+  --card-bg: rgba(255,255,255,.045);
+  --card-border: rgba(255,255,255,.08);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'Archivo', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.mercury-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 15px;
+  padding: 16px;
+}
+
+.mercury-glass {
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  background: var(--panel);
+  border-top: 1px solid rgba(255,255,255,.08);
+}
+
+.mercury-btn-primary {
+  background: var(--accent);
+  color: var(--on-accent);
+  border: none;
+  border-radius: 12px;
+  padding: 14px;
+  font-family: 'Archivo', sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.mercury-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.mercury-tabbar {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  height: 82px;
+  padding: 11px 22px 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  z-index: 30;
+}
+
+.mercury-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-faint);
+  width: 44px;
+  text-decoration: none;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.mercury-tab.active { color: var(--accent-soft); }
+
+.mercury-tab-fab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: 52px;
+  margin-top: -16px;
+  text-decoration: none;
+}
+
+.mercury-tab-fab .fab-circle {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 20px -4px rgba(122,178,222,.5);
+}
+
+.mercury-tab-fab span {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-faint);
+}

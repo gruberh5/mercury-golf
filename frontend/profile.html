@@ -4,91 +4,100 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mercury -- Profile</title>
+<link rel="icon" type="image/svg+xml" href="logo/mercury-icon.svg">
+<link rel="apple-touch-icon" href="logo/apple-touch-icon.png">
+<link rel="stylesheet" href="mercury-theme.css">
 <script>
-  // ===================================================
-  // CONFIG -- same values as index.html
-  // ===================================================
-  const SUPABASE_URL = "PASTE_YOUR_SUPABASE_URL_HERE";
-  const SUPABASE_KEY = "PASTE_YOUR_SUPABASE_PUBLISHABLE_KEY_HERE";
+  const SUPABASE_URL = "https://qzkhficwcpicglywmcid.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_t2IT_8t6w8cYP5aipFHWVQ_ESPnRjKG";
 </script>
 <style>
-  body { font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 16px; background: #111; color: #eee; }
-  h1 { font-size: 20px; }
-  h2 { font-size: 15px; color: #aaa; margin-top: 24px; }
-  label { display: block; font-size: 13px; color: #aaa; margin-top: 10px; }
-  input, select, textarea { width: 100%; box-sizing: border-box; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1c1c1c; color: #eee; margin-top: 4px; }
-  textarea { min-height: 50px; font-family: inherit; }
-  .club-row { border: 1px solid #333; border-radius: 8px; padding: 10px; margin-top: 12px; position: relative; }
-  .club-row .remove-btn { position: absolute; top: 8px; right: 8px; background: #442222; color: #eee; border: none; border-radius: 6px; padding: 4px 8px; font-size: 12px; }
-  #add-club-btn, #save-btn, #go-to-map-btn { width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: bold; margin-top: 16px; }
-  #add-club-btn { background: #333; color: #eee; }
-  #save-btn { background: #22cc55; color: white; }
-  #go-to-map-btn { background: #3388ff; color: white; display: none; }
-  .hint { font-size: 12px; color: #888; margin-top: 4px; }
-  #status { font-size: 13px; color: #f88; margin-top: 10px; min-height: 16px; }
+  body { padding: 24px 22px 100px; }
+  h1 { font-size: 20px; font-weight: 700; }
+  h2 { font-size: 13px; color: var(--text-muted); margin-top: 24px; text-transform: uppercase; letter-spacing: .05em; }
+  label { display: block; font-size: 12px; color: var(--text-muted); margin-top: 12px; }
+  input, select, textarea {
+    width: 100%; box-sizing: border-box; padding: 10px; border-radius: 10px;
+    border: 1px solid var(--card-border); background: var(--card-bg); color: var(--text);
+    margin-top: 4px; font-family: 'Archivo', sans-serif;
+  }
+  textarea { min-height: 50px; }
+  .club-row { position: relative; margin-top: 14px; }
+  .club-row .remove-btn { position: absolute; top: 12px; right: 12px; background: rgba(226,75,74,.15); color: #f0999b; border: none; border-radius: 8px; padding: 4px 10px; font-size: 11px; }
+  #add-club-btn { width: 100%; margin-top: 14px; background: var(--card-bg); color: var(--text); border: 1px solid var(--card-border); border-radius: 12px; padding: 12px; font-weight: 600; }
+  #save-btn { width: 100%; margin-top: 20px; }
+  #status { font-size: 13px; margin-top: 10px; min-height: 16px; }
+  .player-picker-row { display: flex; gap: 8px; align-items: center; }
 </style>
 </head>
 <body>
 
-<a href="index.html" style="color:#3388ff; display:inline-block; margin-bottom:8px;">&larr; Home</a>
-<h1>Mercury Golf -- Profile</h1>
+<h1>Edit profile</h1>
 
 <label>I am:</label>
-<select id="player-picker">
-  <option value="">Loading players...</option>
-</select>
+<select id="player-picker"><option value="">Loading players...</option></select>
 
 <div id="profile-form" style="display:none;">
-
-  <h2>Personal info</h2>
+  <h2>Personal</h2>
   <label>Name</label>
   <input id="name" type="text">
-
   <label>Handedness</label>
   <select id="handedness">
     <option value="">Not specified</option>
     <option value="right">Right-handed</option>
     <option value="left">Left-handed</option>
   </select>
-
   <label>Age</label>
   <input id="age" type="number">
-
   <label>Handicap Index (if you have one)</label>
   <input id="handicap" type="number" step="0.1">
 
   <h2>Your bag</h2>
-  <p class="hint">For each club, feel free to add notes: a typical miss (e.g. "tends left"), a confidence level, a real yardage, shaft details -- as much or as little as you want.</p>
-
+  <p style="font-size:12px; color:var(--text-muted);">For each club, add notes: a typical miss, confidence level, shaft details -- as much or as little as you want.</p>
   <div id="clubs-container"></div>
   <button id="add-club-btn" type="button">+ Add a club</button>
 
   <h2>Your game, generally</h2>
-  <label>Anything else worth knowing -- strengths, weaknesses, tendencies</label>
+  <label>Strengths, weaknesses, tendencies</label>
   <textarea id="game-notes"></textarea>
 
-  <button id="save-btn" type="button">Save profile</button>
+  <button id="save-btn" type="button" class="mercury-btn-primary">Save profile</button>
   <div id="status"></div>
+</div>
 
-  <button id="go-to-map-btn" type="button">Go to map &rarr;</button>
+<div class="mercury-tabbar mercury-glass">
+  <a href="index.html" class="mercury-tab">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 8l7-5 7 5"/><path d="M5 8v8h10V8"/></svg>
+    Home
+  </a>
+  <a href="stats.html" class="mercury-tab">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 16V9M10 16V4M16 16v-5"/></svg>
+    Stats
+  </a>
+  <a href="map.html" class="mercury-tab-fab">
+    <div class="fab-circle"><svg width="22" height="22" viewBox="0 0 22 22" fill="#0e1620"><path d="M7 4l11 7-11 7z"/></svg></div>
+    <span>Play</span>
+  </a>
+  <a href="rounds.html" class="mercury-tab">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h12M4 10h12M4 15h12"/></svg>
+    Rounds
+  </a>
+  <a href="profile.html" class="mercury-tab active">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="7" r="3.2"/><path d="M4 17c0-3.3 2.7-5 6-5s6 1.7 6 5"/></svg>
+    Profile
+  </a>
 </div>
 
 <script>
 let currentPlayerId = null;
 let currentBagId = null;
-let existingClubIds = []; // club_ids that already exist in the DB, so we know which rows are edits vs new
 
-// ---------------------------------------------------------
-// Supabase helpers
-// ---------------------------------------------------------
 async function supabaseRequest(method, path, body) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     method,
     headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation'
+      apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json', 'Prefer': 'return=representation'
     },
     body: body ? JSON.stringify(body) : undefined
   });
@@ -97,25 +106,22 @@ async function supabaseRequest(method, path, body) {
   return text ? JSON.parse(text) : null;
 }
 
-// ---------------------------------------------------------
-// Club row UI
-// ---------------------------------------------------------
 function addClubRow(club) {
   club = club || {};
   const row = document.createElement('div');
-  row.className = 'club-row';
+  row.className = 'club-row mercury-card';
   row.dataset.clubId = club.club_id || '';
   row.innerHTML = `
     <button type="button" class="remove-btn">Remove</button>
-    <label>Club type (e.g. Driver, 7 Iron, Putter)</label>
-    <input class="club-type" value="${club.club_type || ''}">
+    <label>Club type</label>
+    <input class="club-type" placeholder="Driver, 7 Iron, Putter" value="${club.club_type || ''}">
     <label>Manufacturer</label>
     <input class="club-manufacturer" value="${club.manufacturer || ''}">
     <label>Model</label>
     <input class="club-model" value="${club.model || ''}">
     <label>Loft</label>
     <input class="club-loft" type="number" step="0.1" value="${club.loft ?? ''}">
-    <label>Typical yardage (how far this club normally goes for you)</label>
+    <label>Typical yardage</label>
     <input class="club-yardage" type="number" value="${club.typical_yardage ?? ''}">
     <label>Shaft model</label>
     <input class="club-shaft-model" value="${club.shaft_model || ''}">
@@ -126,12 +132,8 @@ function addClubRow(club) {
   `;
   row.querySelector('.remove-btn').addEventListener('click', async () => {
     if (row.dataset.clubId) {
-      try {
-        await supabaseRequest('DELETE', `clubs?club_id=eq.${row.dataset.clubId}`);
-      } catch (e) {
-        document.getElementById('status').textContent = 'Failed to remove club: ' + e.message;
-        return;
-      }
+      try { await supabaseRequest('DELETE', `clubs?club_id=eq.${row.dataset.clubId}`); }
+      catch (e) { document.getElementById('status').textContent = 'Failed to remove: ' + e.message; return; }
     }
     row.remove();
   });
@@ -140,17 +142,11 @@ function addClubRow(club) {
 
 document.getElementById('add-club-btn').addEventListener('click', () => addClubRow());
 
-// ---------------------------------------------------------
-// Load an existing player's full profile
-// ---------------------------------------------------------
 async function loadPlayer(playerId) {
   document.getElementById('clubs-container').innerHTML = '';
   document.getElementById('status').textContent = '';
-
-  const players = await supabaseRequest('GET', `players?player_id=eq.${playerId}&select=*`);
-  const player = players[0];
+  const player = (await supabaseRequest('GET', `players?player_id=eq.${playerId}&select=*`))[0];
   currentPlayerId = player.player_id;
-
   document.getElementById('name').value = player.name || '';
   document.getElementById('handedness').value = player.handedness || '';
   document.getElementById('age').value = player.age ?? '';
@@ -165,14 +161,11 @@ async function loadPlayer(playerId) {
   } else {
     currentBagId = null;
   }
-
   document.getElementById('profile-form').style.display = 'block';
-  document.getElementById('go-to-map-btn').style.display = 'block';
 }
 
 function startNewPlayer() {
-  currentPlayerId = null;
-  currentBagId = null;
+  currentPlayerId = null; currentBagId = null;
   document.getElementById('name').value = '';
   document.getElementById('handedness').value = '';
   document.getElementById('age').value = '';
@@ -181,46 +174,30 @@ function startNewPlayer() {
   document.getElementById('clubs-container').innerHTML = '';
   document.getElementById('status').textContent = '';
   document.getElementById('profile-form').style.display = 'block';
-  document.getElementById('go-to-map-btn').style.display = 'none';
 }
 
-// ---------------------------------------------------------
-// Player picker
-// ---------------------------------------------------------
 const picker = document.getElementById('player-picker');
 
-async function loadPlayerList() {
-  try {
-    const players = await supabaseRequest('GET', 'players?select=player_id,name&order=name');
-    picker.innerHTML = '<option value="">Select your name</option>';
-    players.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.player_id;
-      opt.textContent = p.name;
-      picker.appendChild(opt);
-    });
-    const newOpt = document.createElement('option');
-    newOpt.value = 'new';
-    newOpt.textContent = '+ New player';
-    picker.appendChild(newOpt);
-  } catch (e) {
-    document.getElementById('status').textContent = 'Failed to load players: ' + e.message;
-  }
+async function loadPlayerList(selectId) {
+  const players = await supabaseRequest('GET', 'players?select=player_id,name&order=name');
+  picker.innerHTML = '<option value="">Select your name</option>';
+  players.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.player_id; opt.textContent = p.name;
+    picker.appendChild(opt);
+  });
+  const newOpt = document.createElement('option');
+  newOpt.value = 'new'; newOpt.textContent = '+ New player';
+  picker.appendChild(newOpt);
+  if (selectId) picker.value = selectId;
 }
 
 picker.addEventListener('change', () => {
-  if (picker.value === 'new') {
-    startNewPlayer();
-  } else if (picker.value) {
-    loadPlayer(picker.value);
-  } else {
-    document.getElementById('profile-form').style.display = 'none';
-  }
+  if (picker.value === 'new') startNewPlayer();
+  else if (picker.value) loadPlayer(picker.value);
+  else document.getElementById('profile-form').style.display = 'none';
 });
 
-// ---------------------------------------------------------
-// Save
-// ---------------------------------------------------------
 document.getElementById('save-btn').addEventListener('click', async () => {
   const statusEl = document.getElementById('status');
   statusEl.style.color = '#f88';
@@ -241,14 +218,10 @@ document.getElementById('save-btn').addEventListener('click', async () => {
     } else {
       await supabaseRequest('PATCH', `players?player_id=eq.${currentPlayerId}`, playerData);
     }
-
     if (!currentBagId) {
-      const createdBag = await supabaseRequest('POST', 'bags', {
-        player_id: currentPlayerId, name: 'My Bag', active: true
-      });
+      const createdBag = await supabaseRequest('POST', 'bags', { player_id: currentPlayerId, name: 'My Bag', active: true });
       currentBagId = createdBag[0].bag_id;
     }
-
     const rows = document.querySelectorAll('.club-row');
     for (const row of rows) {
       const clubData = {
@@ -270,21 +243,22 @@ document.getElementById('save-btn').addEventListener('click', async () => {
       }
     }
 
+    localStorage.setItem('mercuryPlayerId', currentPlayerId);
+    localStorage.setItem('mercuryPlayerName', playerData.name);
+
     statusEl.style.color = '#5f5';
     statusEl.textContent = 'Saved.';
-    document.getElementById('go-to-map-btn').style.display = 'block';
-    loadPlayerList(); // refresh in case a new player was just created
+    loadPlayerList(currentPlayerId);
   } catch (e) {
     statusEl.style.color = '#f88';
     statusEl.textContent = 'Save failed: ' + e.message;
   }
 });
 
-document.getElementById('go-to-map-btn').addEventListener('click', () => {
-  window.location.href = `map.html?player_id=${currentPlayerId}`;
+const rememberedId = localStorage.getItem('mercuryPlayerId');
+loadPlayerList(rememberedId).then(() => {
+  if (rememberedId) loadPlayer(rememberedId);
 });
-
-loadPlayerList();
 </script>
 </body>
 </html>

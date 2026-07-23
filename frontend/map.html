@@ -3,277 +3,375 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mercury</title>
+<title>Mercury -- Play</title>
+<link rel="icon" type="image/svg+xml" href="logo/mercury-icon.svg">
+<link rel="apple-touch-icon" href="logo/apple-touch-icon.png">
+<link rel="stylesheet" href="mercury-theme.css">
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js"></script>
 <link href="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css" rel="stylesheet">
 <script>
-  // ===================================================
-  // CONFIG -- paste your real values here (same as before)
-  // ===================================================
   const MAPBOX_TOKEN = "pk.eyJ1IjoiaGdydWI1IiwiYSI6ImNtcnZlN3IyMjBoNXozMHEzYzA0bTJnMncifQ.Z2po4OoEzFiIXjK_XTnAJw";
   const SUPABASE_URL = "https://qzkhficwcpicglywmcid.supabase.co";
   const SUPABASE_KEY = "sb_publishable_t2IT_8t6w8cYP5aipFHWVQ_ESPnRjKG";
 </script>
 <style>
-  html, body { margin: 0; padding: 0; height: 100%; font-family: -apple-system, sans-serif; }
-  #controls { position: absolute; top: 0; left: 0; right: 0; z-index: 10; background: rgba(20,20,20,0.85); color: white; padding: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  #controls select { padding: 6px; border-radius: 6px; border: none; }
-  #view-toggle-btn { padding: 6px 12px; border-radius: 6px; border: none; background: #22cc55; color: white; font-weight: bold; }
-  #distance-panel { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10; background: rgba(20,20,20,0.85); color: white; padding: 14px 20px; border-radius: 12px; text-align: center; min-width: 200px; }
-  #distance-panel .raw { font-size: 40px; font-weight: bold; line-height: 1.1; }
-  #distance-panel .label { font-size: 13px; opacity: 0.8; margin-top: 2px; }
-  #distance-panel .adjusted { font-size: 16px; margin-top: 8px; opacity: 0.9; }
-  #map { position: absolute; top: 0; bottom: 0; left: 0; right: 0; }
-  #status { position: absolute; top: 60px; left: 10px; z-index: 10; color: white; font-size: 12px; background: rgba(20,20,20,0.7); padding: 6px 10px; border-radius: 6px; }
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+
+  #setup-screen { max-width: 420px; margin: 0 auto; padding: 24px 22px 100px; box-sizing: border-box; }
+  #setup-screen h1 { font-size: 20px; font-weight: 700; }
+  #setup-screen label { display: block; font-size: 12px; color: var(--text-muted); margin-top: 12px; }
+  #setup-screen select { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid var(--card-border); background: var(--card-bg); color: var(--text); margin-top: 4px; box-sizing: border-box; font-family: 'Archivo', sans-serif; }
+  #start-round-btn { width: 100%; margin-top: 20px; }
+  #setup-status { font-size: 13px; color: #f88; margin-top: 10px; min-height: 16px; }
+  #no-player-warning a { color: var(--accent-soft); }
+
+  #controls { position: absolute; top: 0; left: 0; right: 0; z-index: 10; background: var(--panel); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); padding: 12px 16px; display: flex; gap: 12px; align-items: center; border-bottom: 1px solid rgba(255,255,255,.08); font-family: 'Archivo', sans-serif; }
+  #controls .course-label { font-weight: 700; font-size: 14px; }
+  #controls select { padding: 6px 8px; border-radius: 8px; border: 1px solid var(--card-border); background: rgba(255,255,255,.06); color: var(--text); font-family: 'Archivo', sans-serif; }
+  #view-toggle-btn { padding: 6px 12px; border-radius: 8px; border: none; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 12px; margin-left: auto; }
+  #map { position: absolute; top: 52px; left: 0; right: 0; bottom: 300px; }
+  #status { position: absolute; top: 62px; left: 10px; z-index: 10; color: white; font-size: 11px; background: rgba(20,24,29,.8); padding: 5px 9px; border-radius: 6px; }
+
+  #distance-panel { position: absolute; top: 62px; left: 50%; transform: translateX(-50%); z-index: 10; background: var(--panel); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); color: white; padding: 8px 18px; border-radius: 14px; text-align: center; }
+  #distance-panel .raw { font-size: 30px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  #distance-panel .label { font-size: 10px; color: var(--text-faint); }
+  #distance-panel .adjusted { font-size: 12.5px; margin-top: 3px; color: var(--accent-soft); }
+
+  #score-panel { position: absolute; bottom: 82px; left: 0; right: 0; z-index: 10; background: var(--panel); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); padding: 12px 16px; box-sizing: border-box; border-top: 1px solid rgba(255,255,255,.08); font-family: 'Archivo', sans-serif; }
+  #score-panel .row { display: flex; gap: 8px; margin-bottom: 8px; }
+  #score-panel .row > div { flex: 1; }
+  #score-panel label { font-size: 10px; color: var(--text-faint); display: block; margin-bottom: 3px; }
+  #score-panel input, #score-panel select { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--card-border); background: rgba(255,255,255,.06); color: var(--text); box-sizing: border-box; font-family: 'Archivo', sans-serif; }
+  #save-score-btn { width: 100%; padding: 10px; border-radius: 10px; border: none; background: var(--accent); color: var(--on-accent); font-weight: 700; }
+  #score-status { font-size: 11px; text-align: center; margin-top: 6px; min-height: 14px; }
 </style>
 </head>
 <body>
 
-<div id="controls">
-  <a href="profile.html" style="color:white; align-self:center;">Profile</a>
-  <select id="course-select"><option value="">Loading courses...</option></select>
-  <select id="hole-select" disabled><option value="">Pick a course first</option></select>
-  <button id="view-toggle-btn">Approach View</button>
+<div id="setup-screen">
+  <h1>Start a round</h1>
+  <div id="no-player-warning" style="display:none; color:#f88; font-size:13px;">
+    No player selected. <a href="profile.html">Go to your profile first</a>.
+  </div>
+  <div id="setup-fields">
+    <label>Course</label>
+    <select id="setup-course-select"><option value="">Loading courses...</option></select>
+    <label>Tee</label>
+    <select id="setup-tee-select" disabled><option value="">Pick a course first</option></select>
+    <button id="start-round-btn" class="mercury-btn-primary" disabled>Start Round</button>
+    <div id="setup-status"></div>
+  </div>
 </div>
 
-<div id="status"></div>
+<div id="round-screen" style="display:none;">
+  <div id="controls">
+    <span class="course-label" id="locked-course-label"></span>
+    <select id="hole-select"><option value="">Loading holes...</option></select>
+    <button id="view-toggle-btn">Approach View</button>
+  </div>
 
-<div id="map"></div>
+  <div id="status"></div>
+  <div id="map"></div>
 
-<div id="distance-panel">
-  <div class="raw" id="raw-distance">--</div>
-  <div class="label">yards to green</div>
-  <div class="adjusted" id="adjusted-distance"></div>
+  <div id="distance-panel">
+    <div class="raw" id="raw-distance">--</div>
+    <div class="label">yards to green</div>
+    <div class="adjusted" id="adjusted-distance"></div>
+  </div>
+
+  <div id="score-panel">
+    <div class="row">
+      <div><label>Score</label><input id="score-input" type="number" min="1"></div>
+      <div><label>Putts</label><input id="putts-input" type="number" min="0"></div>
+    </div>
+    <div class="row">
+      <div>
+        <label>Fairway</label>
+        <select id="fairway-select">
+          <option value="">--</option><option value="hit">Hit</option><option value="left">Left</option>
+          <option value="right">Right</option><option value="short">Short</option><option value="long">Long</option>
+        </select>
+      </div>
+      <div>
+        <label>Green</label>
+        <select id="green-select">
+          <option value="">--</option><option value="hit">Hit</option><option value="left">Left</option>
+          <option value="right">Right</option><option value="short">Short</option><option value="long">Long</option>
+        </select>
+      </div>
+    </div>
+    <button id="save-score-btn">Save hole score</button>
+    <div id="score-status"></div>
+  </div>
+</div>
+
+<div class="mercury-tabbar mercury-glass" style="background:var(--panel);">
+  <a href="index.html" class="mercury-tab">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 8l7-5 7 5"/><path d="M5 8v8h10V8"/></svg>
+    Home
+  </a>
+  <a href="stats.html" class="mercury-tab">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 16V9M10 16V4M16 16v-5"/></svg>
+    Stats
+  </a>
+  <a href="map.html" class="mercury-tab-fab">
+    <div class="fab-circle"><svg width="22" height="22" viewBox="0 0 22 22" fill="#0e1620"><path d="M7 4l11 7-11 7z"/></svg></div>
+    <span>Play</span>
+  </a>
+  <a href="rounds.html" class="mercury-tab">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h12M4 10h12M4 15h12"/></svg>
+    Rounds
+  </a>
+  <a href="profile.html" class="mercury-tab">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="7" r="3.2"/><path d="M4 17c0-3.3 2.7-5 6-5s6 1.7 6 5"/></svg>
+    Profile
+  </a>
 </div>
 
 <script>
-mapboxgl.accessToken = MAPBOX_TOKEN;
+const urlParams = new URLSearchParams(window.location.search);
+let playerId = urlParams.get('player_id') || localStorage.getItem('mercuryPlayerId');
+let roundId = urlParams.get('round_id');
 
-const map = new mapboxgl.Map({
-  container: 'map',
-  style: 'mapbox://styles/mapbox/satellite-v9',
-  center: [-84.4569, 39.1031],
-  zoom: 16
-});
-
-let greenMarker = null;
-let playerMarker = null;
-let currentGreen = null;      // { lat, lon }
-let lastPlayerPos = null;     // { lat, lon }
-let lastFlownPos = null;      // last position we actually re-centered the map on
-let viewMode = 'hole';        // 'hole' or 'approach'
-let cachedElevDiffYards = null;
-let lastElevFetchTime = 0;
-
-// ---------------------------------------------------------
-// Math helpers
-// ---------------------------------------------------------
-function haversineMeters(lat1, lon1, lat2, lon2) {
-  const R = 6371000;
-  const toRad = d => d * Math.PI / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a = Math.sin(dLat / 2) ** 2 +
-            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(a));
+async function supabaseRequest(method, path, body) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method,
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (!res.ok) throw new Error(`${method} ${path} failed: ${res.status} ${await res.text()}`);
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
 }
 
-function metersToYards(m) { return m * 1.09361; }
+const setupCourseSelect = document.getElementById('setup-course-select');
+const setupTeeSelect = document.getElementById('setup-tee-select');
+const startRoundBtn = document.getElementById('start-round-btn');
+const setupStatus = document.getElementById('setup-status');
 
+async function initSetupScreen() {
+  if (!playerId) {
+    document.getElementById('no-player-warning').style.display = 'block';
+    document.getElementById('setup-fields').style.display = 'none';
+    return;
+  }
+  try {
+    const courses = await supabaseRequest('GET', 'courses?select=course_id,course_name&order=course_name');
+    setupCourseSelect.innerHTML = '<option value="">Select a course</option>';
+    courses.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.course_id; opt.textContent = c.course_name;
+      setupCourseSelect.appendChild(opt);
+    });
+  } catch (e) { setupStatus.textContent = 'Failed to load courses: ' + e.message; }
+}
+
+setupCourseSelect.addEventListener('change', async () => {
+  const courseId = setupCourseSelect.value;
+  setupTeeSelect.disabled = true; startRoundBtn.disabled = true;
+  if (!courseId) return;
+  setupTeeSelect.innerHTML = '<option value="">Loading tees...</option>';
+  try {
+    const tees = await supabaseRequest('GET', `tees?course_id=eq.${courseId}&select=tee_id,tee_name,gender&order=tee_name`);
+    setupTeeSelect.innerHTML = '<option value="">Select a tee</option>';
+    tees.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.tee_id; opt.textContent = `${t.tee_name} (${t.gender})`;
+      setupTeeSelect.appendChild(opt);
+    });
+    setupTeeSelect.disabled = false;
+  } catch (e) { setupStatus.textContent = 'Failed to load tees: ' + e.message; }
+});
+
+setupTeeSelect.addEventListener('change', () => { startRoundBtn.disabled = !setupTeeSelect.value; });
+
+startRoundBtn.addEventListener('click', async () => {
+  setupStatus.style.color = '#f88'; setupStatus.textContent = 'Starting round...';
+  try {
+    const bags = await supabaseRequest('GET', `bags?player_id=eq.${playerId}&select=bag_id&order=created_at`);
+    if (bags.length === 0) { setupStatus.textContent = 'No bag found -- complete your profile first.'; return; }
+    const bagId = bags[0].bag_id;
+    const created = await supabaseRequest('POST', 'rounds', {
+      player_id: playerId, bag_id: bagId, tee_id: setupTeeSelect.value, played_at: new Date().toISOString()
+    });
+    roundId = created[0].round_id;
+    history.replaceState(null, '', `map.html?player_id=${playerId}&round_id=${roundId}`);
+    enterRoundScreen(setupCourseSelect.value, setupCourseSelect.selectedOptions[0].textContent);
+  } catch (e) { setupStatus.textContent = 'Failed to start round: ' + e.message; }
+});
+
+let map = null, greenMarker = null, playerMarker = null, currentGreen = null, currentHoleId = null;
+let lastPlayerPos = null, lastFlownPos = null, viewMode = 'hole', cachedElevDiffYards = null, lastElevFetchTime = 0;
+
+function haversineMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000, toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+function metersToYards(m) { return m * 1.09361; }
 function bearingDegrees(lat1, lon1, lat2, lon2) {
-  const toRad = d => d * Math.PI / 180;
-  const toDeg = r => r * 180 / Math.PI;
+  const toRad = d => d * Math.PI / 180, toDeg = r => r * 180 / Math.PI;
   const dLon = toRad(lon2 - lon1);
   const y = Math.sin(dLon) * Math.cos(toRad(lat2));
-  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
-            Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
   return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
 
-// ---------------------------------------------------------
-// Elevation (Open-Elevation -- works for any point, no viewport dependency)
-// ---------------------------------------------------------
 async function fetchElevationDiffYards(playerLat, playerLon, greenLat, greenLon) {
   try {
     const url = `https://api.open-elevation.com/api/v1/lookup?locations=${playerLat},${playerLon}|${greenLat},${greenLon}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error('Open-Elevation request failed');
     const data = await res.json();
-    const playerElev = data.results[0].elevation;
-    const greenElev = data.results[1].elevation;
-    return metersToYards(greenElev - playerElev);
-  } catch (e) {
-    document.getElementById('status').textContent = 'Elevation lookup failed: ' + e.message;
-    return null;
-  }
+    return metersToYards(data.results[1].elevation - data.results[0].elevation);
+  } catch (e) { document.getElementById('status').textContent = 'Elevation lookup failed: ' + e.message; return null; }
 }
 
-// ---------------------------------------------------------
-// Distance + elevation display
-// ---------------------------------------------------------
 async function updateDistanceDisplay() {
   if (!currentGreen || !lastPlayerPos) return;
-
   const rawMeters = haversineMeters(lastPlayerPos.lat, lastPlayerPos.lon, currentGreen.lat, currentGreen.lon);
   const rawYards = metersToYards(rawMeters);
   document.getElementById('raw-distance').textContent = Math.round(rawYards);
-
-  // Only refetch elevation every 30s (or if we have none yet) -- no need to
-  // hammer the API on every single GPS tick, elevation doesn't change that fast.
   const now = Date.now();
   if (cachedElevDiffYards === null || now - lastElevFetchTime > 30000) {
     lastElevFetchTime = now;
-    cachedElevDiffYards = await fetchElevationDiffYards(
-      lastPlayerPos.lat, lastPlayerPos.lon, currentGreen.lat, currentGreen.lon
-    );
+    cachedElevDiffYards = await fetchElevationDiffYards(lastPlayerPos.lat, lastPlayerPos.lon, currentGreen.lat, currentGreen.lon);
   }
-
   const adjustedEl = document.getElementById('adjusted-distance');
   if (cachedElevDiffYards != null) {
     const adjustedYards = rawYards + cachedElevDiffYards;
     const direction = cachedElevDiffYards > 1 ? 'uphill' : cachedElevDiffYards < -1 ? 'downhill' : 'flat';
     adjustedEl.textContent = `plays like ${Math.round(adjustedYards)} (${direction})`;
-  } else {
-    adjustedEl.textContent = '';
-  }
+  } else { adjustedEl.textContent = ''; }
 }
 
-// ---------------------------------------------------------
-// Map view: auto-center + orient toward the green
-// ---------------------------------------------------------
-
 function updateMapView(force) {
-  if (!currentGreen || !lastPlayerPos) return;
-
+  if (!currentGreen || !lastPlayerPos || !map) return;
   if (!force && lastFlownPos) {
     const movedMeters = haversineMeters(lastPlayerPos.lat, lastPlayerPos.lon, lastFlownPos.lat, lastFlownPos.lon);
     if (movedMeters < 15) return;
   }
-
   const bearing = bearingDegrees(lastPlayerPos.lat, lastPlayerPos.lon, currentGreen.lat, currentGreen.lon);
-
   if (viewMode === 'approach') {
     map.easeTo({ center: [currentGreen.lon, currentGreen.lat], zoom: 19, bearing, duration: 1000 });
   } else {
-    const bounds = new mapboxgl.LngLatBounds()
-      .extend([lastPlayerPos.lon, lastPlayerPos.lat])
-      .extend([currentGreen.lon, currentGreen.lat]);
+    const bounds = new mapboxgl.LngLatBounds().extend([lastPlayerPos.lon, lastPlayerPos.lat]).extend([currentGreen.lon, currentGreen.lat]);
     map.fitBounds(bounds, { padding: 80, bearing, duration: 1000, maxZoom: 18 });
   }
-
   lastFlownPos = { ...lastPlayerPos };
 }
 
 document.getElementById('view-toggle-btn').addEventListener('click', () => {
   viewMode = viewMode === 'hole' ? 'approach' : 'hole';
   document.getElementById('view-toggle-btn').textContent = viewMode === 'hole' ? 'Approach View' : 'Hole View';
-  updateMapView(true); // force, ignore the "haven't moved enough" throttle
+  updateMapView(true);
 });
 
-// ---------------------------------------------------------
-// Live GPS
-// ---------------------------------------------------------
 function onPosition(position) {
   lastPlayerPos = { lat: position.coords.latitude, lon: position.coords.longitude };
-
-  if (!playerMarker) {
-    playerMarker = new mapboxgl.Marker({ color: '#3388ff' })
-      .setLngLat([lastPlayerPos.lon, lastPlayerPos.lat]).addTo(map);
-  } else {
-    playerMarker.setLngLat([lastPlayerPos.lon, lastPlayerPos.lat]);
-  }
-
+  if (!map) return;
+  if (!playerMarker) playerMarker = new mapboxgl.Marker({ color: '#5f9fd4' }).setLngLat([lastPlayerPos.lon, lastPlayerPos.lat]).addTo(map);
+  else playerMarker.setLngLat([lastPlayerPos.lon, lastPlayerPos.lat]);
   updateDistanceDisplay();
   updateMapView(false);
 }
+function onPositionError(err) { document.getElementById('status').textContent = 'GPS error: ' + err.message; }
+if (navigator.geolocation) navigator.geolocation.watchPosition(onPosition, onPositionError, { enableHighAccuracy: true, maximumAge: 1000 });
 
-function onPositionError(err) {
-  document.getElementById('status').textContent = 'GPS error: ' + err.message;
-}
-
-if (navigator.geolocation) {
-  navigator.geolocation.watchPosition(onPosition, onPositionError, {
-    enableHighAccuracy: true,
-    maximumAge: 1000
-  });
-} else {
-  document.getElementById('status').textContent = 'Geolocation not supported on this device.';
-}
-
-// ---------------------------------------------------------
-// Supabase: populate course + hole dropdowns
-// ---------------------------------------------------------
-async function supabaseGet(path) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
-  });
-  if (!res.ok) throw new Error(`Supabase request failed: ${res.status}`);
-  return res.json();
-}
-
-const courseSelect = document.getElementById('course-select');
 const holeSelect = document.getElementById('hole-select');
+let lockedCourseId = null;
 
-async function loadCourses() {
-  try {
-    const courses = await supabaseGet('courses?select=course_id,course_name&order=course_name');
-    courseSelect.innerHTML = '<option value="">Select a course</option>';
-    courses.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.course_id;
-      opt.textContent = c.course_name;
-      courseSelect.appendChild(opt);
-    });
-  } catch (e) {
-    document.getElementById('status').textContent = 'Failed to load courses: ' + e.message;
-  }
+async function loadHolesForLockedCourse() {
+  const holes = await supabaseRequest('GET', `holes?course_id=eq.${lockedCourseId}&select=hole_id,hole_number,par,green_lat,green_lon&order=hole_number`);
+  holeSelect.innerHTML = '';
+  holes.forEach(h => {
+    const opt = document.createElement('option');
+    opt.value = h.hole_id; opt.textContent = `Hole ${h.hole_number} (par ${h.par})`;
+    opt.dataset.lat = h.green_lat; opt.dataset.lon = h.green_lon;
+    holeSelect.appendChild(opt);
+  });
+  if (holes.length > 0) selectHole(holes[0].hole_id, holes[0].green_lat, holes[0].green_lon);
 }
 
-async function loadHoles(courseId) {
-  holeSelect.disabled = true;
-  holeSelect.innerHTML = '<option value="">Loading holes...</option>';
-  try {
-    const holes = await supabaseGet(
-      `holes?course_id=eq.${courseId}&select=hole_id,hole_number,par,green_lat,green_lon&order=hole_number`
-    );
-    holeSelect.innerHTML = '<option value="">Select a hole</option>';
-    holes.forEach(h => {
-      const opt = document.createElement('option');
-      opt.value = h.hole_id;
-      opt.textContent = `Hole ${h.hole_number} (par ${h.par})`;
-      opt.dataset.lat = h.green_lat;
-      opt.dataset.lon = h.green_lon;
-      holeSelect.appendChild(opt);
-    });
-    holeSelect.disabled = false;
-  } catch (e) {
-    document.getElementById('status').textContent = 'Failed to load holes: ' + e.message;
-  }
+function selectHole(holeId, lat, lon) {
+  currentHoleId = holeId;
+  currentGreen = { lat: parseFloat(lat), lon: parseFloat(lon) };
+  cachedElevDiffYards = null;
+  holeSelect.value = holeId;
+  if (!greenMarker) greenMarker = new mapboxgl.Marker({ color: '#5f9fd4' }).setLngLat([currentGreen.lon, currentGreen.lat]).addTo(map);
+  else greenMarker.setLngLat([currentGreen.lon, currentGreen.lat]);
+  updateDistanceDisplay();
+  updateMapView(true);
+  loadExistingHoleScore();
 }
-
-courseSelect.addEventListener('change', () => {
-  if (courseSelect.value) loadHoles(courseSelect.value);
-});
 
 holeSelect.addEventListener('change', () => {
   const opt = holeSelect.selectedOptions[0];
-  if (!opt || !opt.dataset.lat) return;
-
-  currentGreen = { lat: parseFloat(opt.dataset.lat), lon: parseFloat(opt.dataset.lon) };
-  cachedElevDiffYards = null; // force a fresh elevation fetch for the new hole
-
-  if (!greenMarker) {
-    greenMarker = new mapboxgl.Marker({ color: '#22cc55' })
-      .setLngLat([currentGreen.lon, currentGreen.lat]).addTo(map);
-  } else {
-    greenMarker.setLngLat([currentGreen.lon, currentGreen.lat]);
-  }
-
-  updateDistanceDisplay();
-  updateMapView(true); // force, this is a fresh hole regardless of movement
+  if (opt && opt.dataset.lat) selectHole(opt.value, opt.dataset.lat, opt.dataset.lon);
 });
 
-loadCourses();
+let currentHoleScoreId = null;
+
+async function loadExistingHoleScore() {
+  document.getElementById('score-input').value = '';
+  document.getElementById('putts-input').value = '';
+  document.getElementById('fairway-select').value = '';
+  document.getElementById('green-select').value = '';
+  document.getElementById('score-status').textContent = '';
+  currentHoleScoreId = null;
+  try {
+    const existing = await supabaseRequest('GET', `hole_scores?round_id=eq.${roundId}&hole_id=eq.${currentHoleId}&select=*`);
+    if (existing.length > 0) {
+      const hs = existing[0];
+      currentHoleScoreId = hs.hole_score_id;
+      document.getElementById('score-input').value = hs.score ?? '';
+      document.getElementById('putts-input').value = hs.putts ?? '';
+      document.getElementById('fairway-select').value = hs.fairway_result || '';
+      document.getElementById('green-select').value = hs.green_result || '';
+    }
+  } catch (e) { document.getElementById('score-status').textContent = 'Failed to load: ' + e.message; }
+}
+
+document.getElementById('save-score-btn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('score-status');
+  statusEl.style.color = '#f88'; statusEl.textContent = 'Saving...';
+  const scoreVal = document.getElementById('score-input').value;
+  const puttsVal = document.getElementById('putts-input').value;
+  if (!scoreVal || !puttsVal) { statusEl.textContent = 'Score and putts are both required.'; return; }
+  const data = {
+    round_id: roundId, hole_id: currentHoleId,
+    score: parseInt(scoreVal), putts: parseInt(puttsVal),
+    fairway_result: document.getElementById('fairway-select').value || null,
+    green_result: document.getElementById('green-select').value || null
+  };
+  try {
+    if (currentHoleScoreId) await supabaseRequest('PATCH', `hole_scores?hole_score_id=eq.${currentHoleScoreId}`, data);
+    else { const created = await supabaseRequest('POST', 'hole_scores', data); currentHoleScoreId = created[0].hole_score_id; }
+    statusEl.style.color = '#5f5'; statusEl.textContent = 'Saved.';
+  } catch (e) { statusEl.style.color = '#f88'; statusEl.textContent = 'Save failed: ' + e.message; }
+});
+
+function enterRoundScreen(courseId, courseName) {
+  lockedCourseId = courseId;
+  document.getElementById('setup-screen').style.display = 'none';
+  document.getElementById('round-screen').style.display = 'block';
+  document.getElementById('locked-course-label').textContent = courseName;
+  mapboxgl.accessToken = MAPBOX_TOKEN;
+  map = new mapboxgl.Map({ container: 'map', style: 'mapbox://styles/mapbox/satellite-v9', center: [-84.4569, 39.1031], zoom: 16 });
+  map.on('load', loadHolesForLockedCourse);
+}
+
+async function resumeExistingRound() {
+  const rounds = await supabaseRequest('GET', `rounds?round_id=eq.${roundId}&select=tee_id`);
+  const teeId = rounds[0].tee_id;
+  const tees = await supabaseRequest('GET', `tees?tee_id=eq.${teeId}&select=course_id`);
+  const courseId = tees[0].course_id;
+  const courses = await supabaseRequest('GET', `courses?course_id=eq.${courseId}&select=course_name`);
+  enterRoundScreen(courseId, courses[0].course_name);
+}
+
+if (roundId) resumeExistingRound(); else initSetupScreen();
 </script>
 </body>
 </html>
