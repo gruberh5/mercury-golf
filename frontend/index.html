@@ -76,6 +76,7 @@ async function render() {
   if (!playerId) {
     content.innerHTML = `
       <div class="no-player">
+        <img src="logo/mercury-icon.svg" alt="" style="width:64px; height:64px; border-radius:50%; margin-bottom:16px;">
         <h1>Mercury Golf</h1>
         <p class="sub">Your course, your clubs, your caddie.</p>
         <p>No profile selected yet. <a href="profile.html">Set up your profile</a> to get started.</p>
@@ -84,7 +85,14 @@ async function render() {
     return;
   }
 
-  content.innerHTML = `<h1>${greetingWord()}, ${playerName}</h1><p class="sub">Loading your stats...</p>`;
+  content.innerHTML = `
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <div class="mercury-label" style="margin:0;">Mercury</div>
+      <img src="logo/mercury-icon.svg" alt="" style="width:36px; height:36px; border-radius:50%;">
+    </div>
+    <h1>${greetingWord()}, ${playerName}</h1>
+    <p class="sub">Loading your stats...</p>
+  `;
 
   try {
     const player = (await supabaseGet(`players?player_id=eq.${playerId}&select=handicap`))[0];
@@ -120,6 +128,10 @@ async function render() {
     `).join('');
 
     content.innerHTML = `
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <div class="mercury-label" style="margin:0;">Mercury</div>
+        <img src="logo/mercury-icon.svg" alt="" style="width:36px; height:36px; border-radius:50%;">
+      </div>
       <h1>${greetingWord()}, ${playerName}</h1>
       <p class="sub">${new Date().toLocaleDateString(undefined, { weekday: 'long' })}</p>
 
