@@ -50,7 +50,17 @@
   #score-sheet h3 { font-size: 15px; font-weight: 700; margin: 0 0 14px; display: flex; justify-content: space-between; align-items: center; }
   #score-sheet .close-x { color: var(--text-faint); font-size: 20px; line-height: 1; }
   #score-sheet .picker-label { font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--text-faint); margin: 14px 0 8px; }
-  #score-sheet .chip-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  #score-sheet .chip-row { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+  #score-sheet .chip-row::-webkit-scrollbar { display: none; }
+  #score-chip-row .chip { flex: 0 0 54px; }
+  #putts-chip-row .chip { flex: 1; }
+  .dir-picker { display: grid; grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(3, 56px); gap: 8px; justify-content: center; margin: 4px auto 0; }
+  .dir-picker .icon-chip { width: 56px; height: 56px; border-radius: 50%; padding: 0; }
+  .dir-slot-up { grid-column: 2; grid-row: 1; }
+  .dir-slot-left { grid-column: 1; grid-row: 2; }
+  .dir-slot-hit { grid-column: 2; grid-row: 2; }
+  .dir-slot-right { grid-column: 3; grid-row: 2; }
+  .dir-slot-down { grid-column: 2; grid-row: 3; }
   .chip { flex: 1; min-width: 40px; padding: 10px 0; border-radius: 10px; border: 1px solid var(--card-border); background: rgba(255,255,255,.05); color: var(--text); text-align: center; font-weight: 700; font-family: 'Archivo', sans-serif; display: flex; align-items: center; justify-content: center; }
   .chip.selected { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
   .score-ring { display: inline-flex; align-items: center; justify-content: center; }
@@ -118,22 +128,22 @@
 
     <div id="fairway-row-wrap">
       <div class="picker-label">Fairway</div>
-      <div class="chip-row" id="fairway-chip-row">
-        <div class="icon-chip" data-value="hit">&#10003;</div>
-        <div class="icon-chip" data-value="left">&#8592;</div>
-        <div class="icon-chip" data-value="right">&#8594;</div>
-        <div class="icon-chip" data-value="short">&#8595;</div>
-        <div class="icon-chip" data-value="long">&#8593;</div>
+      <div class="dir-picker" id="fairway-chip-row">
+        <div class="icon-chip dir-slot-up" data-value="long">&#8593;</div>
+        <div class="icon-chip dir-slot-left" data-value="left">&#8592;</div>
+        <div class="icon-chip dir-slot-hit" data-value="hit">&#10003;</div>
+        <div class="icon-chip dir-slot-right" data-value="right">&#8594;</div>
+        <div class="icon-chip dir-slot-down" data-value="short">&#8595;</div>
       </div>
     </div>
 
     <div class="picker-label">Green</div>
-    <div class="chip-row" id="green-chip-row">
-      <div class="icon-chip" data-value="hit">&#10003;</div>
-      <div class="icon-chip" data-value="left">&#8592;</div>
-      <div class="icon-chip" data-value="right">&#8594;</div>
-      <div class="icon-chip" data-value="short">&#8595;</div>
-      <div class="icon-chip" data-value="long">&#8593;</div>
+    <div class="dir-picker" id="green-chip-row">
+      <div class="icon-chip dir-slot-up" data-value="long">&#8593;</div>
+      <div class="icon-chip dir-slot-left" data-value="left">&#8592;</div>
+      <div class="icon-chip dir-slot-hit" data-value="hit">&#10003;</div>
+      <div class="icon-chip dir-slot-right" data-value="right">&#8594;</div>
+      <div class="icon-chip dir-slot-down" data-value="short">&#8595;</div>
     </div>
 
     <button id="save-score-btn">Save hole score</button>
@@ -376,7 +386,11 @@ function buildScoreChips(par) {
       selectChip(row, score, false);
     });
     row.appendChild(chip);
+    if (off === -1) chip.dataset.isBirdie = 'true';
   });
+
+  const birdieChip = row.querySelector('[data-is-birdie="true"]');
+  if (birdieChip) row.scrollLeft = birdieChip.offsetLeft - 8;
 }
 
 document.getElementById('putts-chip-row').querySelectorAll('.chip').forEach(chip => {
