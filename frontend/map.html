@@ -25,25 +25,41 @@
   #setup-status { font-size: 13px; color: #f88; margin-top: 10px; min-height: 16px; }
   #no-player-warning a { color: var(--accent-soft); }
 
-  #controls { position: absolute; top: 0; left: 0; right: 0; z-index: 10; background: var(--panel); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); padding: 12px 16px; display: flex; gap: 12px; align-items: center; border-bottom: 1px solid rgba(255,255,255,.08); font-family: 'Archivo', sans-serif; }
-  #controls .course-label { font-weight: 700; font-size: 14px; }
-  #controls select { padding: 6px 8px; border-radius: 8px; border: 1px solid var(--card-border); background: rgba(255,255,255,.06); color: var(--text); font-family: 'Archivo', sans-serif; }
+  #controls { position: absolute; top: 0; left: 0; right: 0; z-index: 10; background: var(--panel); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); padding: 10px 14px; display: flex; gap: 10px; align-items: center; border-bottom: 1px solid rgba(255,255,255,.08); font-family: 'Archivo', sans-serif; }
+  #back-arrow { color: var(--text); font-size: 22px; text-decoration: none; padding: 0 4px; }
+  #hole-select { -webkit-appearance: none; appearance: none; background: rgba(255,255,255,.08); border: none; border-radius: 8px; color: var(--text); font-family: 'Archivo', sans-serif; font-weight: 700; font-size: 20px; padding: 6px 10px; }
+  .stat-col { text-align: center; padding: 0 6px; border-left: 1px solid rgba(255,255,255,.1); }
+  .stat-col .num { font-weight: 700; font-size: 17px; font-variant-numeric: tabular-nums; }
+  .stat-col .lbl { font-size: 8.5px; color: var(--text-faint); letter-spacing: .04em; text-transform: uppercase; }
   #view-toggle-btn { padding: 6px 12px; border-radius: 8px; border: none; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 12px; margin-left: auto; }
-  #map { position: absolute; top: 52px; left: 0; right: 0; bottom: 300px; }
-  #status { position: absolute; top: 62px; left: 10px; z-index: 10; color: white; font-size: 11px; background: rgba(20,24,29,.8); padding: 5px 9px; border-radius: 6px; }
+  #map { position: absolute; top: 58px; left: 0; right: 0; bottom: 96px; }
+  #status { position: absolute; top: 68px; left: 10px; z-index: 10; color: white; font-size: 11px; background: rgba(20,24,29,.8); padding: 5px 9px; border-radius: 6px; }
 
-  #distance-panel { position: absolute; top: 62px; left: 50%; transform: translateX(-50%); z-index: 10; background: var(--panel); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); color: white; padding: 8px 18px; border-radius: 14px; text-align: center; }
+  #distance-panel { position: absolute; top: 68px; left: 50%; transform: translateX(-50%); z-index: 10; background: var(--panel); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); color: white; padding: 8px 18px; border-radius: 14px; text-align: center; }
   #distance-panel .raw { font-size: 30px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
   #distance-panel .label { font-size: 10px; color: var(--text-faint); }
   #distance-panel .adjusted { font-size: 12.5px; margin-top: 3px; color: var(--accent-soft); }
 
-  #score-panel { position: absolute; bottom: 82px; left: 0; right: 0; z-index: 10; background: var(--panel); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); padding: 12px 16px; box-sizing: border-box; border-top: 1px solid rgba(255,255,255,.08); font-family: 'Archivo', sans-serif; }
-  #score-panel .row { display: flex; gap: 8px; margin-bottom: 8px; }
-  #score-panel .row > div { flex: 1; }
-  #score-panel label { font-size: 10px; color: var(--text-faint); display: block; margin-bottom: 3px; }
-  #score-panel input, #score-panel select { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--card-border); background: rgba(255,255,255,.06); color: var(--text); box-sizing: border-box; font-family: 'Archivo', sans-serif; }
-  #save-score-btn { width: 100%; padding: 10px; border-radius: 10px; border: none; background: var(--accent); color: var(--on-accent); font-weight: 700; }
-  #score-status { font-size: 11px; text-align: center; margin-top: 6px; min-height: 14px; }
+  #open-score-btn { position: absolute; bottom: 96px; left: 16px; right: 16px; z-index: 10; padding: 13px; border-radius: 12px; border: none; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 14px; font-family: 'Archivo', sans-serif; }
+  #open-score-btn.saved { background: rgba(255,255,255,.1); color: var(--text); }
+
+  #score-sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 40; display: none; }
+  #score-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 41; background: #22272e; border-radius: 20px 20px 0 0; padding: 18px 18px 24px; box-sizing: border-box; transform: translateY(100%); transition: transform .22s ease-out; font-family: 'Archivo', sans-serif; max-height: 80vh; overflow-y: auto; }
+  #score-sheet.open { transform: translateY(0); }
+  #score-sheet-backdrop.open { display: block; }
+  #score-sheet h3 { font-size: 15px; font-weight: 700; margin: 0 0 14px; display: flex; justify-content: space-between; align-items: center; }
+  #score-sheet .close-x { color: var(--text-faint); font-size: 20px; line-height: 1; }
+  #score-sheet .picker-label { font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--text-faint); margin: 14px 0 8px; }
+  #score-sheet .chip-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { flex: 1; min-width: 40px; padding: 10px 0; border-radius: 10px; border: 1px solid var(--card-border); background: rgba(255,255,255,.05); color: var(--text); text-align: center; font-weight: 700; font-family: 'Archivo', sans-serif; }
+  .chip .main { font-size: 17px; display: block; }
+  .chip .sub { font-size: 9px; color: var(--text-faint); font-weight: 500; display: block; margin-top: 1px; }
+  .chip.selected { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .chip.selected .sub { color: var(--on-accent); opacity: .75; }
+  .icon-chip { flex: 1; padding: 12px 0; border-radius: 10px; border: 1px solid var(--card-border); background: rgba(255,255,255,.05); color: var(--text); font-size: 18px; }
+  .icon-chip.selected { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  #save-score-btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: var(--accent); color: var(--on-accent); font-weight: 700; margin-top: 18px; }
+  #score-status { font-size: 11px; text-align: center; margin-top: 8px; min-height: 14px; }
 </style>
 </head>
 <body>
@@ -65,8 +81,11 @@
 
 <div id="round-screen" style="display:none;">
   <div id="controls">
-    <span class="course-label" id="locked-course-label"></span>
-    <select id="hole-select"><option value="">Loading holes...</option></select>
+    <a href="index.html" id="back-arrow">&lsaquo;</a>
+    <select id="hole-select"><option value="">--</option></select>
+    <div class="stat-col"><div class="num" id="stat-par">--</div><div class="lbl">Par</div></div>
+    <div class="stat-col"><div class="num" id="stat-yds">--</div><div class="lbl">Yds</div></div>
+    <div class="stat-col"><div class="num" id="stat-hcp">--</div><div class="lbl">Hcp</div></div>
     <button id="view-toggle-btn">Approach View</button>
   </div>
 
@@ -79,27 +98,43 @@
     <div class="adjusted" id="adjusted-distance"></div>
   </div>
 
-  <div id="score-panel">
-    <div class="row">
-      <div><label>Score</label><input id="score-input" type="number" min="1"></div>
-      <div><label>Putts</label><input id="putts-input" type="number" min="0"></div>
+  <button id="open-score-btn">Enter hole score</button>
+
+  <div id="score-sheet-backdrop"></div>
+  <div id="score-sheet">
+    <h3><span id="score-sheet-title">Hole 1</span><span class="close-x" id="close-sheet-btn">&times;</span></h3>
+
+    <div class="picker-label">Score</div>
+    <div class="chip-row" id="score-chip-row"></div>
+
+    <div class="picker-label">Putts</div>
+    <div class="chip-row" id="putts-chip-row">
+      <div class="chip" data-value="0"><span class="main">0</span></div>
+      <div class="chip" data-value="1"><span class="main">1</span></div>
+      <div class="chip" data-value="2"><span class="main">2</span></div>
+      <div class="chip" data-value="3"><span class="main">3+</span></div>
     </div>
-    <div class="row">
-      <div>
-        <label>Fairway</label>
-        <select id="fairway-select">
-          <option value="">--</option><option value="hit">Hit</option><option value="left">Left</option>
-          <option value="right">Right</option><option value="short">Short</option><option value="long">Long</option>
-        </select>
-      </div>
-      <div>
-        <label>Green</label>
-        <select id="green-select">
-          <option value="">--</option><option value="hit">Hit</option><option value="left">Left</option>
-          <option value="right">Right</option><option value="short">Short</option><option value="long">Long</option>
-        </select>
+
+    <div id="fairway-row-wrap">
+      <div class="picker-label">Fairway</div>
+      <div class="chip-row" id="fairway-chip-row">
+        <div class="icon-chip" data-value="hit">&#10003;</div>
+        <div class="icon-chip" data-value="left">&#8592;</div>
+        <div class="icon-chip" data-value="right">&#8594;</div>
+        <div class="icon-chip" data-value="short">&#8595;</div>
+        <div class="icon-chip" data-value="long">&#8593;</div>
       </div>
     </div>
+
+    <div class="picker-label">Green</div>
+    <div class="chip-row" id="green-chip-row">
+      <div class="icon-chip" data-value="hit">&#10003;</div>
+      <div class="icon-chip" data-value="left">&#8592;</div>
+      <div class="icon-chip" data-value="right">&#8594;</div>
+      <div class="icon-chip" data-value="short">&#8595;</div>
+      <div class="icon-chip" data-value="long">&#8593;</div>
+    </div>
+
     <button id="save-score-btn">Save hole score</button>
     <div id="score-status"></div>
   </div>
@@ -195,6 +230,7 @@ startRoundBtn.addEventListener('click', async () => {
       player_id: playerId, bag_id: bagId, tee_id: setupTeeSelect.value, played_at: new Date().toISOString()
     });
     roundId = created[0].round_id;
+    lockedTeeId = setupTeeSelect.value;
     history.replaceState(null, '', `map.html?player_id=${playerId}&round_id=${roundId}`);
     enterRoundScreen(setupCourseSelect.value, setupCourseSelect.selectedOptions[0].textContent);
   } catch (e) { setupStatus.textContent = 'Failed to start round: ' + e.message; }
@@ -287,14 +323,27 @@ async function loadHolesForLockedCourse() {
   holeSelect.innerHTML = '';
   holes.forEach(h => {
     const opt = document.createElement('option');
-    opt.value = h.hole_id; opt.textContent = `Hole ${h.hole_number} (par ${h.par})`;
-    opt.dataset.lat = h.green_lat; opt.dataset.lon = h.green_lon;
+    opt.value = h.hole_id; opt.textContent = h.hole_number;
+    opt.dataset.lat = h.green_lat; opt.dataset.lon = h.green_lon; opt.dataset.par = h.par; opt.dataset.holeNumber = h.hole_number;
     holeSelect.appendChild(opt);
   });
-  if (holes.length > 0) selectHole(holes[0].hole_id, holes[0].green_lat, holes[0].green_lon);
+  if (holes.length > 0) selectHole(holes[0].hole_id, holes[0].green_lat, holes[0].green_lon, holes[0].par, holes[0].hole_number);
 }
 
-function selectHole(holeId, lat, lon) {
+let currentPar = null, currentHoleNumber = null, lockedTeeId = null;
+
+function selectHole(holeId, lat, lon, par, holeNumber) {
+  currentPar = parseInt(par);
+  currentHoleNumber = holeNumber;
+  document.getElementById('stat-par').textContent = currentPar;
+  document.getElementById('stat-yds').textContent = '--';
+  document.getElementById('stat-hcp').textContent = '--';
+  supabaseRequest('GET', `tee_holes?tee_id=eq.${lockedTeeId}&hole_id=eq.${holeId}&select=yardage,handicap_index`).then(rows => {
+    if (rows.length > 0) {
+      document.getElementById('stat-yds').textContent = rows[0].yardage;
+      document.getElementById('stat-hcp').textContent = rows[0].handicap_index;
+    }
+  });
   currentHoleId = holeId;
   currentGreen = { lat: parseFloat(lat), lon: parseFloat(lon) };
   cachedElevDiffYards = null;
@@ -308,47 +357,121 @@ function selectHole(holeId, lat, lon) {
 
 holeSelect.addEventListener('change', () => {
   const opt = holeSelect.selectedOptions[0];
-  if (opt && opt.dataset.lat) selectHole(opt.value, opt.dataset.lat, opt.dataset.lon);
+  if (opt && opt.dataset.lat) selectHole(opt.value, opt.dataset.lat, opt.dataset.lon, opt.dataset.par, opt.dataset.holeNumber);
 });
 
 let currentHoleScoreId = null;
+let selectedScore = null, selectedPutts = null, selectedFairway = null, selectedGreen = null;
+
+function selectChip(row, value, isFairwayGreen) {
+  row.querySelectorAll('.chip, .icon-chip').forEach(el => {
+    const match = isFairwayGreen ? el.dataset.value === value : parseInt(el.dataset.value) === value;
+    el.classList.toggle('selected', match);
+  });
+}
+
+function buildScoreChips(par) {
+  const row = document.getElementById('score-chip-row');
+  row.innerHTML = '';
+  const offsets = [-3, -2, -1, 0, 1, 2, 3, 4];
+  offsets.forEach(off => {
+    const score = par + off;
+    if (score < 1) return;
+    const relLabel = off === 0 ? 'E' : (off > 0 ? '+' + off : String(off));
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.dataset.value = score;
+    chip.innerHTML = `<span class="main">${score}</span><span class="sub">${relLabel}</span>`;
+    chip.addEventListener('click', () => {
+      selectedScore = score;
+      selectChip(row, score, false);
+    });
+    row.appendChild(chip);
+  });
+}
+
+document.getElementById('putts-chip-row').querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    selectedPutts = parseInt(chip.dataset.value);
+    selectChip(chip.parentElement, selectedPutts, false);
+  });
+});
+
+document.getElementById('fairway-chip-row').querySelectorAll('.icon-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    selectedFairway = chip.dataset.value;
+    selectChip(chip.parentElement, selectedFairway, true);
+  });
+});
+
+document.getElementById('green-chip-row').querySelectorAll('.icon-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    selectedGreen = chip.dataset.value;
+    selectChip(chip.parentElement, selectedGreen, true);
+  });
+});
 
 async function loadExistingHoleScore() {
-  document.getElementById('score-input').value = '';
-  document.getElementById('putts-input').value = '';
-  document.getElementById('fairway-select').value = '';
-  document.getElementById('green-select').value = '';
+  document.getElementById('score-sheet-title').textContent = `Hole ${currentHoleNumber}`;
+  buildScoreChips(currentPar);
+  document.getElementById('fairway-row-wrap').style.display = currentPar === 3 ? 'none' : 'block';
+
+  selectedScore = null; selectedPutts = null; selectedFairway = null; selectedGreen = null;
+  document.querySelectorAll('.chip, .icon-chip').forEach(el => el.classList.remove('selected'));
   document.getElementById('score-status').textContent = '';
   currentHoleScoreId = null;
+
+  const openBtn = document.getElementById('open-score-btn');
+  openBtn.textContent = 'Enter hole score';
+  openBtn.classList.remove('saved');
+
   try {
     const existing = await supabaseRequest('GET', `hole_scores?round_id=eq.${roundId}&hole_id=eq.${currentHoleId}&select=*`);
     if (existing.length > 0) {
       const hs = existing[0];
       currentHoleScoreId = hs.hole_score_id;
-      document.getElementById('score-input').value = hs.score ?? '';
-      document.getElementById('putts-input').value = hs.putts ?? '';
-      document.getElementById('fairway-select').value = hs.fairway_result || '';
-      document.getElementById('green-select').value = hs.green_result || '';
+      selectedScore = hs.score; selectedPutts = hs.putts;
+      selectedFairway = hs.fairway_result; selectedGreen = hs.green_result;
+      if (selectedScore != null) selectChip(document.getElementById('score-chip-row'), selectedScore, false);
+      if (selectedPutts != null) selectChip(document.getElementById('putts-chip-row'), Math.min(selectedPutts, 3), false);
+      if (selectedFairway) selectChip(document.getElementById('fairway-chip-row'), selectedFairway, true);
+      if (selectedGreen) selectChip(document.getElementById('green-chip-row'), selectedGreen, true);
+      openBtn.textContent = `Score: ${hs.score} -- edit`;
+      openBtn.classList.add('saved');
     }
   } catch (e) { document.getElementById('score-status').textContent = 'Failed to load: ' + e.message; }
 }
 
+function openSheet() {
+  document.getElementById('score-sheet').classList.add('open');
+  document.getElementById('score-sheet-backdrop').classList.add('open');
+}
+function closeSheet() {
+  document.getElementById('score-sheet').classList.remove('open');
+  document.getElementById('score-sheet-backdrop').classList.remove('open');
+}
+document.getElementById('open-score-btn').addEventListener('click', openSheet);
+document.getElementById('close-sheet-btn').addEventListener('click', closeSheet);
+document.getElementById('score-sheet-backdrop').addEventListener('click', closeSheet);
+
 document.getElementById('save-score-btn').addEventListener('click', async () => {
   const statusEl = document.getElementById('score-status');
   statusEl.style.color = '#f88'; statusEl.textContent = 'Saving...';
-  const scoreVal = document.getElementById('score-input').value;
-  const puttsVal = document.getElementById('putts-input').value;
-  if (!scoreVal || !puttsVal) { statusEl.textContent = 'Score and putts are both required.'; return; }
+  if (selectedScore == null || selectedPutts == null) { statusEl.textContent = 'Pick a score and putts.'; return; }
   const data = {
     round_id: roundId, hole_id: currentHoleId,
-    score: parseInt(scoreVal), putts: parseInt(puttsVal),
-    fairway_result: document.getElementById('fairway-select').value || null,
-    green_result: document.getElementById('green-select').value || null
+    score: selectedScore, putts: selectedPutts,
+    fairway_result: selectedFairway || null,
+    green_result: selectedGreen || null
   };
   try {
     if (currentHoleScoreId) await supabaseRequest('PATCH', `hole_scores?hole_score_id=eq.${currentHoleScoreId}`, data);
     else { const created = await supabaseRequest('POST', 'hole_scores', data); currentHoleScoreId = created[0].hole_score_id; }
     statusEl.style.color = '#5f5'; statusEl.textContent = 'Saved.';
+    const openBtn = document.getElementById('open-score-btn');
+    openBtn.textContent = `Score: ${selectedScore} -- edit`;
+    openBtn.classList.add('saved');
+    setTimeout(closeSheet, 500);
   } catch (e) { statusEl.style.color = '#f88'; statusEl.textContent = 'Save failed: ' + e.message; }
 });
 
@@ -356,7 +479,6 @@ function enterRoundScreen(courseId, courseName) {
   lockedCourseId = courseId;
   document.getElementById('setup-screen').style.display = 'none';
   document.getElementById('round-screen').style.display = 'block';
-  document.getElementById('locked-course-label').textContent = courseName;
   mapboxgl.accessToken = MAPBOX_TOKEN;
   map = new mapboxgl.Map({ container: 'map', style: 'mapbox://styles/mapbox/satellite-v9', center: [-84.4569, 39.1031], zoom: 16 });
   map.on('load', loadHolesForLockedCourse);
@@ -365,6 +487,7 @@ function enterRoundScreen(courseId, courseName) {
 async function resumeExistingRound() {
   const rounds = await supabaseRequest('GET', `rounds?round_id=eq.${roundId}&select=tee_id`);
   const teeId = rounds[0].tee_id;
+  lockedTeeId = teeId;
   const tees = await supabaseRequest('GET', `tees?tee_id=eq.${teeId}&select=course_id`);
   const courseId = tees[0].course_id;
   const courses = await supabaseRequest('GET', `courses?course_id=eq.${courseId}&select=course_name`);
