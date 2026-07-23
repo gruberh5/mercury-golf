@@ -42,11 +42,13 @@
 
   #bottom-bar { position: absolute; bottom: 16px; left: 16px; right: 16px; z-index: 10; display: flex; align-items: center; justify-content: center; gap: 10px; }
   #bottom-bar button { font-family: 'Archivo', sans-serif; border: none; }
-  .nav-arrow { width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,.08); color: var(--text); font-size: 20px; flex-shrink: 0; }
-  .nav-arrow:disabled { opacity: .3; }
-  #open-score-btn { padding: 13px 20px; border-radius: 12px; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 14px; white-space: nowrap; flex-shrink: 0; }
-  #open-score-btn.saved { background: rgba(255,255,255,.1); color: var(--text); }
-  .side-icon-btn { width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,.08); color: var(--text); font-size: 18px; flex-shrink: 0; }
+  .center-group { display: flex; align-items: stretch; background: var(--accent); border-radius: 12px; overflow: hidden; }
+  .center-group .nav-arrow { width: 44px; background: transparent; color: var(--on-accent); font-size: 20px; flex-shrink: 0; border-right: 1px solid rgba(0,0,0,.15); }
+  .center-group .nav-arrow:last-child { border-right: none; border-left: 1px solid rgba(0,0,0,.15); }
+  .center-group .nav-arrow:disabled { opacity: .35; }
+  #open-score-btn { padding: 13px 20px; background: transparent; color: var(--on-accent); font-weight: 700; font-size: 14px; white-space: nowrap; flex-shrink: 0; }
+  #open-score-btn.saved { color: var(--on-accent); opacity: .85; }
+  .side-icon-btn { width: 44px; height: 44px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 18px; flex-shrink: 0; }
 
   #score-sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 40; display: none; }
   #score-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 41; background: #22272e; border-radius: 20px 20px 0 0; padding: 18px 18px 24px; box-sizing: border-box; transform: translateY(100%); transition: transform .22s ease-out; font-family: 'Archivo', sans-serif; max-height: 80vh; overflow-y: auto; }
@@ -77,9 +79,12 @@
   #scorecard-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 41; background: #22272e; border-radius: 20px 20px 0 0; padding: 18px 18px 24px; box-sizing: border-box; transform: translateY(100%); transition: transform .22s ease-out; font-family: 'Archivo', sans-serif; max-height: 75vh; overflow-y: auto; }
   #scorecard-sheet.open { transform: translateY(0); }
   #scorecard-sheet h3 { font-size: 15px; font-weight: 700; margin: 0 0 14px; display: flex; justify-content: space-between; align-items: center; }
-  .scorecard-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.07); font-size: 14px; }
-  .scorecard-row.total { font-weight: 700; border-bottom: none; padding-top: 12px; }
-  .scorecard-row .sc-score { font-variant-numeric: tabular-nums; font-weight: 700; }
+  .scorecard-wrap { overflow-x: auto; }
+  .scorecard-table { border-collapse: collapse; font-size: 13px; white-space: nowrap; }
+  .scorecard-table th, .scorecard-table td { padding: 8px 10px; text-align: center; border-bottom: 1px solid rgba(255,255,255,.08); }
+  .scorecard-table th { font-size: 10px; color: var(--text-faint); font-weight: 600; text-transform: uppercase; }
+  .scorecard-table .sc-label-col { position: sticky; left: 0; background: #22272e; text-align: left; font-weight: 700; z-index: 1; }
+  .scorecard-table .sc-total-col { font-weight: 700; border-left: 1px solid rgba(255,255,255,.15); }
   #save-score-btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: var(--accent); color: var(--on-accent); font-weight: 700; margin-top: 18px; }
   #score-status { font-size: 11px; text-align: center; margin-top: 8px; min-height: 14px; }
 </style>
@@ -124,16 +129,18 @@
 
   <div id="bottom-bar">
     <button class="side-icon-btn" id="caddie-btn" aria-label="AI caddie">&#10022;</button>
-    <button class="nav-arrow" id="prev-hole-btn" aria-label="Previous hole">&#8249;</button>
-    <button id="open-score-btn">Enter hole score</button>
-    <button class="nav-arrow" id="next-hole-btn" aria-label="Next hole">&#8250;</button>
+    <div class="center-group">
+      <button class="nav-arrow" id="prev-hole-btn" aria-label="Previous hole">&#8249;</button>
+      <button id="open-score-btn">Enter hole score</button>
+      <button class="nav-arrow" id="next-hole-btn" aria-label="Next hole">&#8250;</button>
+    </div>
     <button class="side-icon-btn" id="scorecard-btn" aria-label="Scorecard">&#9638;</button>
   </div>
 
   <div id="score-sheet-backdrop"></div>
   <div id="scorecard-sheet">
     <h3><span>Scorecard</span><span class="close-x" id="close-scorecard-btn">&times;</span></h3>
-    <div id="scorecard-table"></div>
+    <div class="scorecard-wrap"><div id="scorecard-table"></div></div>
   </div>
   <div id="score-sheet">
     <h3><span id="score-sheet-title">Hole 1</span><span class="close-x" id="close-sheet-btn">&times;</span></h3>
@@ -507,18 +514,29 @@ async function openScorecard() {
     const scoreByHole = {};
     scores.forEach(s => { scoreByHole[s.hole_id] = s; });
 
-    let total = 0, parTotal = 0, playedCount = 0;
-    let rowsHtml = holeOrder.map(h => {
+    let parTotal = 0, scoreTotal = 0, playedCount = 0;
+    let holeHeaderCells = '', parCells = '', scoreCells = '';
+
+    holeOrder.forEach(h => {
       const s = scoreByHole[h.hole_id];
       parTotal += h.par;
-      if (s) { total += s.score; playedCount++; }
-      return `<div class="scorecard-row"><span>Hole ${h.hole_number} (par ${h.par})</span><span class="sc-score">${s ? s.score : '--'}</span></div>`;
-    }).join('');
+      holeHeaderCells += `<th>${h.hole_number}</th>`;
+      parCells += `<td>${h.par}</td>`;
+      if (s) { scoreTotal += s.score; playedCount++; }
+      scoreCells += `<td>${s ? s.score : '--'}</td>`;
+    });
 
-    const toPar = playedCount > 0 ? (total - holeOrder.slice(0, playedCount).reduce((a, h) => a + h.par, 0)) : 0;
+    const playedPar = holeOrder.slice(0, playedCount).reduce((a, h) => a + h.par, 0);
+    const toPar = playedCount > 0 ? scoreTotal - playedPar : 0;
     const toParStr = toPar > 0 ? `+${toPar}` : (toPar === 0 ? 'E' : toPar);
 
-    tableEl.innerHTML = rowsHtml + `<div class="scorecard-row total"><span>Total</span><span class="sc-score">${total || '--'} (${playedCount > 0 ? toParStr : '--'})</span></div>`;
+    tableEl.innerHTML = `
+      <table class="scorecard-table">
+        <tr><th class="sc-label-col">Hole</th>${holeHeaderCells}<th class="sc-total-col">Total</th></tr>
+        <tr><td class="sc-label-col">Par</td>${parCells}<td class="sc-total-col">${parTotal}</td></tr>
+        <tr><td class="sc-label-col">Score</td>${scoreCells}<td class="sc-total-col">${playedCount > 0 ? scoreTotal + ' (' + toParStr + ')' : '--'}</td></tr>
+      </table>
+    `;
   } catch (e) {
     tableEl.innerHTML = `<p style="color:#f88;">Failed to load: ${e.message}</p>`;
   }
