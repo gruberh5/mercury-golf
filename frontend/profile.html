@@ -26,18 +26,44 @@
   .club-row .remove-btn { position: absolute; top: 12px; right: 12px; background: rgba(226,75,74,.15); color: #f0999b; border: none; border-radius: 8px; padding: 4px 10px; font-size: 11px; }
   #add-club-btn { width: 100%; margin-top: 14px; background: var(--card-bg); color: var(--text); border: 1px solid var(--card-border); border-radius: 12px; padding: 12px; font-weight: 600; }
   #save-btn { width: 100%; margin-top: 20px; }
-  #status { font-size: 13px; margin-top: 10px; min-height: 16px; }
-  .player-picker-row { display: flex; gap: 8px; align-items: center; }
+  #logout-btn { width: 100%; margin-top: 10px; background: rgba(226,75,74,.12); color: #f0999b; border: none; border-radius: 12px; padding: 12px; font-weight: 600; }
+  #status, #auth-status { font-size: 13px; margin-top: 10px; min-height: 16px; }
+  .auth-toggle { display: flex; gap: 8px; margin-bottom: 16px; }
+  .auth-toggle button { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--card-border); background: var(--card-bg); color: var(--text); font-weight: 600; }
+  .auth-toggle button.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 </style>
 </head>
 <body>
 
-<h1>Edit profile</h1>
+<div id="auth-screen">
+  <h1>Mercury Golf</h1>
+  <div class="auth-toggle">
+    <button id="show-login-btn" class="active">Log in</button>
+    <button id="show-signup-btn">Sign up</button>
+  </div>
 
-<label>I am:</label>
-<select id="player-picker"><option value="">Loading players...</option></select>
+  <div id="login-form">
+    <label>Email</label>
+    <input id="login-email" type="email">
+    <label>Password</label>
+    <input id="login-password" type="password">
+    <button id="login-btn" class="mercury-btn-primary" style="margin-top:16px; width:100%;">Log in</button>
+  </div>
+
+  <div id="signup-form" style="display:none;">
+    <label>Email</label>
+    <input id="signup-email" type="email">
+    <label>Password (min 6 characters)</label>
+    <input id="signup-password" type="password">
+    <button id="signup-btn" class="mercury-btn-primary" style="margin-top:16px; width:100%;">Sign up</button>
+  </div>
+
+  <div id="auth-status"></div>
+</div>
 
 <div id="profile-form" style="display:none;">
+  <h1>Edit profile</h1>
+
   <h2>Personal</h2>
   <label>Name</label>
   <input id="name" type="text">
@@ -63,6 +89,8 @@
 
   <button id="save-btn" type="button" class="mercury-btn-primary">Save profile</button>
   <div id="status"></div>
+
+  <button id="logout-btn" type="button">Log out</button>
 </div>
 
 <div class="mercury-tabbar mercury-glass">
@@ -89,22 +117,124 @@
 </div>
 
 <script>
-let currentPlayerId = null;
-let currentBagId = null;
+function getAccessToken() { return localStorage.getItem('mercuryAccessToken'); }
+function getRefreshToken() { return localStorage.getItem('mercuryRefreshToken'); }
+function setSession(accessToken, refreshToken) {
+  localStorage.setItem('mercuryAccessToken', accessToken);
+  localStorage.setItem('mercuryRefreshToken', refreshToken);
+}
+function clearSession() {
+  localStorage.removeItem('mercuryAccessToken');
+  localStorage.removeItem('mercuryRefreshToken');
+  localStorage.removeItem('mercuryPlayerId');
+  localStorage.removeItem('mercuryPlayerName');
+}
 
-async function supabaseRequest(method, path, body) {
+async function refreshSession() {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return false;
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: refreshToken })
+  });
+  if (!res.ok) return false;
+  const data = await res.json();
+  setSession(data.access_token, data.refresh_token);
+  return true;
+}
+
+async function supabaseRequest(method, path, body, _isRetry) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     method,
     headers: {
-      apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`,
-      'Content-Type': 'application/json', 'Prefer': 'return=representation'
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${getAccessToken()}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
     },
     body: body ? JSON.stringify(body) : undefined
   });
+  if (res.status === 401 && !_isRetry) {
+    const refreshed = await refreshSession();
+    if (refreshed) return supabaseRequest(method, path, body, true);
+    clearSession();
+    throw new Error('Session expired -- please log in again.');
+  }
   if (!res.ok) throw new Error(`${method} ${path} failed: ${res.status} ${await res.text()}`);
   const text = await res.text();
   return text ? JSON.parse(text) : null;
 }
+
+document.getElementById('show-login-btn').addEventListener('click', () => {
+  document.getElementById('login-form').style.display = 'block';
+  document.getElementById('signup-form').style.display = 'none';
+  document.getElementById('show-login-btn').classList.add('active');
+  document.getElementById('show-signup-btn').classList.remove('active');
+});
+document.getElementById('show-signup-btn').addEventListener('click', () => {
+  document.getElementById('login-form').style.display = 'none';
+  document.getElementById('signup-form').style.display = 'block';
+  document.getElementById('show-signup-btn').classList.add('active');
+  document.getElementById('show-login-btn').classList.remove('active');
+});
+
+document.getElementById('signup-btn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('auth-status');
+  statusEl.style.color = '#f88'; statusEl.textContent = 'Signing up...';
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: document.getElementById('signup-email').value,
+        password: document.getElementById('signup-password').value
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.msg || data.error_description || 'Sign up failed.');
+    if (!data.access_token) {
+      statusEl.style.color = '#5f5';
+      statusEl.textContent = 'Account created. Check your email to confirm, then log in.';
+      return;
+    }
+    setSession(data.access_token, data.refresh_token);
+    showProfileForm(true);
+  } catch (e) {
+    statusEl.style.color = '#f88';
+    statusEl.textContent = e.message;
+  }
+});
+
+document.getElementById('login-btn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('auth-status');
+  statusEl.style.color = '#f88'; statusEl.textContent = 'Logging in...';
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: document.getElementById('login-email').value,
+        password: document.getElementById('login-password').value
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.msg || data.error_description || 'Login failed.');
+    setSession(data.access_token, data.refresh_token);
+    showProfileForm(false);
+  } catch (e) {
+    statusEl.style.color = '#f88';
+    statusEl.textContent = e.message;
+  }
+});
+
+document.getElementById('logout-btn').addEventListener('click', () => {
+  clearSession();
+  window.location.reload();
+});
+
+let currentPlayerId = null;
+let currentBagId = null;
 
 function addClubRow(club) {
   club = club || {};
@@ -142,66 +272,52 @@ function addClubRow(club) {
 
 document.getElementById('add-club-btn').addEventListener('click', () => addClubRow());
 
-async function loadPlayer(playerId) {
-  document.getElementById('clubs-container').innerHTML = '';
+async function showProfileForm(isNewSignup) {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('profile-form').style.display = 'block';
   document.getElementById('status').textContent = '';
-  const player = (await supabaseRequest('GET', `players?player_id=eq.${playerId}&select=*`))[0];
-  currentPlayerId = player.player_id;
-  document.getElementById('name').value = player.name || '';
-  document.getElementById('handedness').value = player.handedness || '';
-  document.getElementById('age').value = player.age ?? '';
-  document.getElementById('handicap').value = player.handicap ?? '';
-  document.getElementById('game-notes').value = player.game_notes || '';
+  document.getElementById('clubs-container').innerHTML = '';
 
-  const bags = await supabaseRequest('GET', `bags?player_id=eq.${playerId}&select=bag_id&order=created_at`);
-  if (bags.length > 0) {
-    currentBagId = bags[0].bag_id;
-    const clubs = await supabaseRequest('GET', `clubs?bag_id=eq.${currentBagId}&select=*`);
-    clubs.forEach(addClubRow);
-  } else {
-    currentBagId = null;
+  if (isNewSignup) {
+    currentPlayerId = null; currentBagId = null;
+    document.getElementById('name').value = '';
+    document.getElementById('handedness').value = '';
+    document.getElementById('age').value = '';
+    document.getElementById('handicap').value = '';
+    document.getElementById('game-notes').value = '';
+    return;
   }
-  document.getElementById('profile-form').style.display = 'block';
+
+  try {
+    const players = await supabaseRequest('GET', 'players?select=*');
+    if (players.length === 0) {
+      currentPlayerId = null; currentBagId = null;
+      return;
+    }
+    const player = players[0];
+    currentPlayerId = player.player_id;
+    localStorage.setItem('mercuryPlayerId', player.player_id);
+    localStorage.setItem('mercuryPlayerName', player.name || '');
+    document.getElementById('name').value = player.name || '';
+    document.getElementById('handedness').value = player.handedness || '';
+    document.getElementById('age').value = player.age ?? '';
+    document.getElementById('handicap').value = player.handicap ?? '';
+    document.getElementById('game-notes').value = player.game_notes || '';
+
+    const bags = await supabaseRequest('GET', `bags?player_id=eq.${currentPlayerId}&select=bag_id&order=created_at`);
+    if (bags.length > 0) {
+      currentBagId = bags[0].bag_id;
+      const clubs = await supabaseRequest('GET', `clubs?bag_id=eq.${currentBagId}&select=*`);
+      clubs.forEach(addClubRow);
+    }
+  } catch (e) {
+    document.getElementById('status').textContent = 'Failed to load profile: ' + e.message;
+  }
 }
-
-function startNewPlayer() {
-  currentPlayerId = null; currentBagId = null;
-  document.getElementById('name').value = '';
-  document.getElementById('handedness').value = '';
-  document.getElementById('age').value = '';
-  document.getElementById('handicap').value = '';
-  document.getElementById('game-notes').value = '';
-  document.getElementById('clubs-container').innerHTML = '';
-  document.getElementById('status').textContent = '';
-  document.getElementById('profile-form').style.display = 'block';
-}
-
-const picker = document.getElementById('player-picker');
-
-async function loadPlayerList(selectId) {
-  const players = await supabaseRequest('GET', 'players?select=player_id,name&order=name');
-  picker.innerHTML = '<option value="">Select your name</option>';
-  players.forEach(p => {
-    const opt = document.createElement('option');
-    opt.value = p.player_id; opt.textContent = p.name;
-    picker.appendChild(opt);
-  });
-  const newOpt = document.createElement('option');
-  newOpt.value = 'new'; newOpt.textContent = '+ New player';
-  picker.appendChild(newOpt);
-  if (selectId) picker.value = selectId;
-}
-
-picker.addEventListener('change', () => {
-  if (picker.value === 'new') startNewPlayer();
-  else if (picker.value) loadPlayer(picker.value);
-  else document.getElementById('profile-form').style.display = 'none';
-});
 
 document.getElementById('save-btn').addEventListener('click', async () => {
   const statusEl = document.getElementById('status');
-  statusEl.style.color = '#f88';
-  statusEl.textContent = 'Saving...';
+  statusEl.style.color = '#f88'; statusEl.textContent = 'Saving...';
 
   const playerData = {
     name: document.getElementById('name').value,
@@ -213,11 +329,20 @@ document.getElementById('save-btn').addEventListener('click', async () => {
 
   try {
     if (!currentPlayerId) {
+      const meRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${getAccessToken()}` }
+      });
+      const me = await meRes.json();
+      playerData.auth_user_id = me.id;
       const created = await supabaseRequest('POST', 'players', playerData);
       currentPlayerId = created[0].player_id;
     } else {
       await supabaseRequest('PATCH', `players?player_id=eq.${currentPlayerId}`, playerData);
     }
+
+    localStorage.setItem('mercuryPlayerId', currentPlayerId);
+    localStorage.setItem('mercuryPlayerName', playerData.name);
+
     if (!currentBagId) {
       const createdBag = await supabaseRequest('POST', 'bags', { player_id: currentPlayerId, name: 'My Bag', active: true });
       currentBagId = createdBag[0].bag_id;
@@ -243,22 +368,17 @@ document.getElementById('save-btn').addEventListener('click', async () => {
       }
     }
 
-    localStorage.setItem('mercuryPlayerId', currentPlayerId);
-    localStorage.setItem('mercuryPlayerName', playerData.name);
-
     statusEl.style.color = '#5f5';
     statusEl.textContent = 'Saved.';
-    loadPlayerList(currentPlayerId);
   } catch (e) {
     statusEl.style.color = '#f88';
     statusEl.textContent = 'Save failed: ' + e.message;
   }
 });
 
-const rememberedId = localStorage.getItem('mercuryPlayerId');
-loadPlayerList(rememberedId).then(() => {
-  if (rememberedId) loadPlayer(rememberedId);
-});
+if (getAccessToken()) {
+  showProfileForm(false);
+}
 </script>
 </body>
 </html>
