@@ -146,6 +146,21 @@ async function render() {
     `;
 
     const rounds = await supabaseRequest('GET', `rounds?player_id=eq.${playerId}&select=round_id,tee_id,played_at&order=played_at.desc`);
+
+    // Check whether the most recent round is unfinished (fewer hole_scores
+    // than the course has holes) -- if so, offer to resume it directly
+    // instead of only ever offering to start a brand new round.
+    let resumeRoundId = null;
+    if (rounds.length > 0) {
+      const mostRecent = rounds[0];
+      const scoresForMostRecent = await supabaseRequest('GET', `hole_scores?round_id=eq.${mostRecent.round_id}&select=hole_score_id`);
+      const tee = (await supabaseRequest('GET', `tees?tee_id=eq.${mostRecent.tee_id}&select=course_id`))[0];
+      const totalHoles = await supabaseRequest('GET', `holes?course_id=eq.${tee.course_id}&select=hole_id`);
+      if (scoresForMostRecent.length < totalHoles.length) {
+        resumeRoundId = mostRecent.round_id;
+      }
+    }
+
     let totalScore = 0, roundCount = rounds.length;
     const roundSummaries = [];
 
@@ -173,6 +188,22 @@ async function render() {
       </div>
     `).join('');
 
+    const ctaHtml = resumeRoundId
+      ? `
+        <div class="mercury-card cta-card">
+          <h2>Round in progress</h2>
+          <p>Pick up right where you left off.</p>
+          <a href="map.html?round_id=${resumeRoundId}" class="mercury-btn-primary" style="display:block; text-align:center; text-decoration:none;">Resume round &rarr;</a>
+        </div>
+      `
+      : `
+        <div class="mercury-card cta-card">
+          <h2>Tee it up</h2>
+          <p>GPS yardages, shot tracking, and your caddie for all 18.</p>
+          <a href="map.html" class="mercury-btn-primary" style="display:block; text-align:center; text-decoration:none;">Start a round &rarr;</a>
+        </div>
+      `;
+
     content.innerHTML = `
       <div style="display:flex; align-items:center; justify-content:space-between;">
         <div class="mercury-label" style="margin:0;">Mercury</div>
@@ -181,11 +212,7 @@ async function render() {
       <h1>${greetingWord()}, ${player.name}</h1>
       <p class="sub">${new Date().toLocaleDateString(undefined, { weekday: 'long' })}</p>
 
-      <div class="mercury-card cta-card">
-        <h2>Tee it up</h2>
-        <p>GPS yardages, shot tracking, and your caddie for all 18.</p>
-        <a href="map.html" class="mercury-btn-primary" style="display:block; text-align:center; text-decoration:none;">Start a round &rarr;</a>
-      </div>
+      ${ctaHtml}
 
       <div class="stat-tiles">
         <div class="mercury-card stat-tile"><div class="num">${player.handicap ?? '--'}</div><div class="mercury-label">Handicap</div></div>
