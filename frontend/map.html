@@ -712,6 +712,19 @@ function selectChip(row, value, isFairwayGreen) {
   });
 }
 
+function buildScoreRingHtml(score, par) {
+  const off = score - par;
+  let inner = `<span class="score-num">${score}</span>`;
+  if (off < 0) {
+    const rings = Math.min(Math.abs(off), 3);
+    for (let i = 0; i < rings; i++) inner = `<span class="score-ring circle">${inner}</span>`;
+  } else if (off > 0) {
+    const rings = Math.min(off, 4);
+    for (let i = 0; i < rings; i++) inner = `<span class="score-ring square">${inner}</span>`;
+  }
+  return inner;
+}
+
 function buildScoreChips(par) {
   const row = document.getElementById('score-chip-row');
   row.innerHTML = '';
@@ -723,15 +736,7 @@ function buildScoreChips(par) {
     chip.className = 'chip';
     chip.dataset.value = score;
 
-    let inner = `<span class="score-num">${score}</span>`;
-    if (off < 0) {
-      const rings = Math.min(Math.abs(off), 3);
-      for (let i = 0; i < rings; i++) inner = `<span class="score-ring circle">${inner}</span>`;
-    } else if (off > 0) {
-      const rings = Math.min(off, 4);
-      for (let i = 0; i < rings; i++) inner = `<span class="score-ring square">${inner}</span>`;
-    }
-    chip.innerHTML = inner;
+    chip.innerHTML = buildScoreRingHtml(score, par);
 
     chip.addEventListener('click', () => {
       selectedScore = score;
@@ -832,7 +837,7 @@ async function openScorecard() {
     const tee = teeInfo[0];
     infoEl.textContent = `${tee.total_yards} yds \u00b7 Slope ${tee.slope_rating} \u00b7 Rating ${tee.course_rating}`;
 
-    let parTotal = 0, scoreTotal = 0, playedCount = 0;
+    let parTotal = 0, scoreTotal = 0, playedPar = 0, playedCount = 0;
     let holeHeaderCells = '', yardsCells = '', parCells = '', hcpCells = '', scoreCells = '';
 
     holeOrder.forEach(h => {
@@ -843,11 +848,10 @@ async function openScorecard() {
       yardsCells += `<td>${th ? th.yardage : '--'}</td>`;
       parCells += `<td>${h.par}</td>`;
       hcpCells += `<td>${th ? th.handicap_index : '--'}</td>`;
-      if (s) { scoreTotal += s.score; playedCount++; }
-      scoreCells += `<td>${s ? s.score : '--'}</td>`;
+      if (s) { scoreTotal += s.score; playedPar += h.par; playedCount++; }
+      scoreCells += `<td>${s ? buildScoreRingHtml(s.score, h.par) : '--'}</td>`;
     });
 
-    const playedPar = holeOrder.slice(0, playedCount).reduce((a, h) => a + h.par, 0);
     const toPar = playedCount > 0 ? scoreTotal - playedPar : 0;
     const toParStr = toPar > 0 ? `+${toPar}` : (toPar === 0 ? 'E' : toPar);
 
