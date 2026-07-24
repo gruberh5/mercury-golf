@@ -31,7 +31,12 @@
   .stat-col { text-align: center; padding: 0 6px; border-left: 1px solid rgba(255,255,255,.1); }
   .stat-col .num { font-weight: 700; font-size: 17px; font-variant-numeric: tabular-nums; }
   .stat-col .lbl { font-size: 8.5px; color: var(--text-faint); letter-spacing: .04em; text-transform: uppercase; }
-  #view-toggle-btn { padding: 6px 12px; border-radius: 8px; border: none; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 12px; margin-left: auto; }
+  #view-toggle-btn { padding: 6px 12px; border-radius: 8px; border: none; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 12px; }
+  #club-select { -webkit-appearance: none; appearance: none; background: rgba(255,255,255,.08); border: none; border-radius: 8px; color: var(--text); font-family: 'Archivo', sans-serif; font-weight: 600; font-size: 12px; padding: 6px 8px; max-width: 110px; }
+  #fmb-panel { position: absolute; top: 68px; right: 12px; z-index: 10; background: var(--panel); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border-radius: 12px; display: flex; gap: 10px; padding: 8px 12px; }
+  #fmb-panel > div { text-align: center; }
+  #fmb-panel span:first-child { display: block; font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; color: #ff9f43; }
+  #fmb-panel .fmb-lbl { font-size: 8px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .04em; }
   #map { position: absolute; top: 58px; left: 0; right: 0; bottom: 0; }
   #status { position: absolute; top: 68px; left: 10px; z-index: 10; color: white; font-size: 11px; background: rgba(20,24,29,.8); padding: 5px 9px; border-radius: 6px; }
 
@@ -113,6 +118,7 @@
     <div class="stat-col"><div class="num" id="stat-par">--</div><div class="lbl">Par</div></div>
     <div class="stat-col"><div class="num" id="stat-yds">--</div><div class="lbl">Yds</div></div>
     <div class="stat-col"><div class="num" id="stat-hcp">--</div><div class="lbl">Hcp</div></div>
+    <select id="club-select" style="margin-left:auto;"><option value="">Club</option></select>
     <button id="view-toggle-btn">Approach View</button>
   </div>
 
@@ -121,8 +127,14 @@
 
   <div id="distance-panel">
     <div class="raw" id="raw-distance">--</div>
-    <div class="label">yards to green</div>
+    <div class="label">yards to target</div>
     <div class="adjusted" id="adjusted-distance"></div>
+  </div>
+
+  <div id="fmb-panel" style="display:none;">
+    <div><span id="fmb-front">--</span><span class="fmb-lbl">Front</span></div>
+    <div><span id="fmb-middle">--</span><span class="fmb-lbl">Mid</span></div>
+    <div><span id="fmb-back">--</span><span class="fmb-lbl">Back</span></div>
   </div>
 
   <div id="bottom-bar">
@@ -295,8 +307,10 @@ startRoundBtn.addEventListener('click', async () => {
   } catch (e) { setupStatus.textContent = 'Failed to start round: ' + e.message; }
 });
 
-let map = null, greenMarker = null, playerMarker = null, currentGreen = null, currentHoleId = null;
+let map = null, greenMarker = null, playerMarker = null, targetMarker = null, currentGreen = null, currentHoleId = null;
 let lastPlayerPos = null, lastFlownPos = null, viewMode = 'hole', cachedElevDiffYards = null, lastElevFetchTime = 0;
+let currentTarget = null, userMovedTarget = false, currentGreenBoundary = null;
+let bagClubs = [], selectedClubYardage = null;
 
 function haversineMeters(lat1, lon1, lat2, lon2) {
   const R = 6371000, toRad = d => d * Math.PI / 180;
@@ -313,6 +327,61 @@ function bearingDegrees(lat1, lon1, lat2, lon2) {
   return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
 
+function destinationPoint(lat, lon, bearingDeg, distanceMeters) {
+  const R = 6371000;
+  const delta = distanceMeters / R;
+  const theta = bearingDeg * Math.PI / 180;
+  const phi1 = lat * Math.PI / 180, lambda1 = lon * Math.PI / 180;
+  const phi2 = Math.asin(Math.sin(phi1) * Math.cos(delta) + Math.cos(phi1) * Math.sin(delta) * Math.cos(theta));
+  const lambda2 = lambda1 + Math.atan2(Math.sin(theta) * Math.sin(delta) * Math.cos(phi1), Math.cos(delta) - Math.sin(phi1) * Math.sin(phi2));
+  return { lat: phi2 * 180 / Math.PI, lon: lambda2 * 180 / Math.PI };
+}
+
+function segmentIntersect(p1, p2, p3, p4) {
+  const d1x = p2.x - p1.x, d1y = p2.y - p1.y;
+  const d2x = p4.x - p3.x, d2y = p4.y - p3.y;
+  const denom = d1x * d2y - d1y * d2x;
+  if (Math.abs(denom) < 1e-9) return null;
+  const t = ((p3.x - p1.x) * d2y - (p3.y - p1.y) * d2x) / denom;
+  const u = ((p3.x - p1.x) * d1y - (p3.y - p1.y) * d1x) / denom;
+  if (t < 0 || t > 1 || u < 0 || u > 1) return null;
+  return { x: p1.x + t * d1x, y: p1.y + t * d1y };
+}
+
+function computeFrontMiddleBackYards(playerLat, playerLon, greenLat, greenLon, ringLonLat) {
+  if (!ringLonLat || ringLonLat.length < 3) return null;
+
+  const cosLat0 = Math.cos(greenLat * Math.PI / 180);
+  const R = 6371000;
+  const toXY = (lat, lon) => ({
+    x: (lon - greenLon) * Math.PI / 180 * R * cosLat0,
+    y: (lat - greenLat) * Math.PI / 180 * R,
+  });
+
+  const playerXY = toXY(playerLat, playerLon);
+  const greenXY = { x: 0, y: 0 };
+  const dx = greenXY.x - playerXY.x, dy = greenXY.y - playerXY.y;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 1) return null;
+  const ext = 100; // extend well past the green so the ray fully crosses it
+  const farPoint = { x: playerXY.x + (dx / len) * (len + ext), y: playerXY.y + (dy / len) * (len + ext) };
+
+  const ring = ringLonLat.map(([lon, lat]) => toXY(lat, lon));
+  const intersections = [];
+  for (let i = 0; i < ring.length - 1; i++) {
+    const inter = segmentIntersect(playerXY, farPoint, ring[i], ring[i + 1]);
+    if (inter) intersections.push(inter);
+  }
+  if (intersections.length === 0) return null;
+
+  const dists = intersections.map(p => Math.sqrt((p.x - playerXY.x) ** 2 + (p.y - playerXY.y) ** 2));
+  return {
+    front: metersToYards(Math.min(...dists)),
+    middle: metersToYards(len),
+    back: metersToYards(Math.max(...dists)),
+  };
+}
+
 async function fetchElevationDiffYards(playerLat, playerLon, greenLat, greenLon) {
   try {
     const url = `https://api.open-elevation.com/api/v1/lookup?locations=${playerLat},${playerLon}|${greenLat},${greenLon}`;
@@ -323,15 +392,65 @@ async function fetchElevationDiffYards(playerLat, playerLon, greenLat, greenLon)
   } catch (e) { document.getElementById('status').textContent = 'Elevation lookup failed: ' + e.message; return null; }
 }
 
+function computeSmartDefaultTarget() {
+  if (!currentGreen) return null;
+  if (!lastPlayerPos) return { lat: currentGreen.lat, lon: currentGreen.lon };
+
+  const distToGreenMeters = haversineMeters(lastPlayerPos.lat, lastPlayerPos.lon, currentGreen.lat, currentGreen.lon);
+  const CLOSE_THRESHOLD_METERS = 230; // roughly 250 yards
+
+  if (currentPar === 3 || distToGreenMeters <= CLOSE_THRESHOLD_METERS || !selectedClubYardage) {
+    return { lat: currentGreen.lat, lon: currentGreen.lon };
+  }
+
+  const bearing = bearingDegrees(lastPlayerPos.lat, lastPlayerPos.lon, currentGreen.lat, currentGreen.lon);
+  const clubDistanceMeters = selectedClubYardage / 1.09361;
+  return destinationPoint(lastPlayerPos.lat, lastPlayerPos.lon, bearing, clubDistanceMeters);
+}
+
+function ensureTargetMarker() {
+  if (!currentTarget || !map) return;
+  if (!targetMarker) {
+    const el = document.createElement('div');
+    el.style.width = '24px'; el.style.height = '24px'; el.style.borderRadius = '50%';
+    el.style.border = '3px solid #ff9f43'; el.style.background = 'rgba(255,159,67,0.35)';
+    el.style.boxShadow = '0 0 0 2px rgba(0,0,0,.3)';
+    targetMarker = new mapboxgl.Marker({ element: el, draggable: true })
+      .setLngLat([currentTarget.lon, currentTarget.lat]).addTo(map);
+    targetMarker.on('dragend', () => {
+      const ll = targetMarker.getLngLat();
+      currentTarget = { lat: ll.lat, lon: ll.lng };
+      userMovedTarget = true;
+      updateDistanceDisplay();
+    });
+  } else {
+    targetMarker.setLngLat([currentTarget.lon, currentTarget.lat]);
+  }
+}
+
+function updateFrontMiddleBackDisplay() {
+  const panel = document.getElementById('fmb-panel');
+  if (!currentGreenBoundary || !lastPlayerPos || !currentGreen) { panel.style.display = 'none'; return; }
+  const fmb = computeFrontMiddleBackYards(lastPlayerPos.lat, lastPlayerPos.lon, currentGreen.lat, currentGreen.lon, currentGreenBoundary);
+  if (!fmb) { panel.style.display = 'none'; return; }
+  panel.style.display = 'flex';
+  document.getElementById('fmb-front').textContent = Math.round(fmb.front);
+  document.getElementById('fmb-middle').textContent = Math.round(fmb.middle);
+  document.getElementById('fmb-back').textContent = Math.round(fmb.back);
+}
+
 async function updateDistanceDisplay() {
-  if (!currentGreen || !lastPlayerPos) return;
-  const rawMeters = haversineMeters(lastPlayerPos.lat, lastPlayerPos.lon, currentGreen.lat, currentGreen.lon);
+  if (!currentTarget || !lastPlayerPos) return;
+  ensureTargetMarker();
+
+  const rawMeters = haversineMeters(lastPlayerPos.lat, lastPlayerPos.lon, currentTarget.lat, currentTarget.lon);
   const rawYards = metersToYards(rawMeters);
   document.getElementById('raw-distance').textContent = Math.round(rawYards);
+
   const now = Date.now();
   if (cachedElevDiffYards === null || now - lastElevFetchTime > 30000) {
     lastElevFetchTime = now;
-    cachedElevDiffYards = await fetchElevationDiffYards(lastPlayerPos.lat, lastPlayerPos.lon, currentGreen.lat, currentGreen.lon);
+    cachedElevDiffYards = await fetchElevationDiffYards(lastPlayerPos.lat, lastPlayerPos.lon, currentTarget.lat, currentTarget.lon);
   }
   const adjustedEl = document.getElementById('adjusted-distance');
   if (cachedElevDiffYards != null) {
@@ -339,6 +458,8 @@ async function updateDistanceDisplay() {
     const direction = cachedElevDiffYards > 1 ? 'uphill' : cachedElevDiffYards < -1 ? 'downhill' : 'flat';
     adjustedEl.textContent = `plays like ${Math.round(adjustedYards)} (${direction})`;
   } else { adjustedEl.textContent = ''; }
+
+  updateFrontMiddleBackDisplay();
 }
 
 function updateMapView(force) {
@@ -368,6 +489,10 @@ function onPosition(position) {
   if (!map) return;
   if (!playerMarker) playerMarker = new mapboxgl.Marker({ color: '#5f9fd4' }).setLngLat([lastPlayerPos.lon, lastPlayerPos.lat]).addTo(map);
   else playerMarker.setLngLat([lastPlayerPos.lon, lastPlayerPos.lat]);
+
+  if (!userMovedTarget) {
+    currentTarget = computeSmartDefaultTarget();
+  }
   updateDistanceDisplay();
   updateMapView(false);
 }
@@ -378,7 +503,7 @@ const holeSelect = document.getElementById('hole-select');
 let lockedCourseId = null;
 
 async function loadHolesForLockedCourse() {
-  const holes = await supabaseRequest('GET', `holes?course_id=eq.${lockedCourseId}&select=hole_id,hole_number,par,green_lat,green_lon&order=hole_number`);
+  const holes = await supabaseRequest('GET', `holes?course_id=eq.${lockedCourseId}&select=hole_id,hole_number,par,green_lat,green_lon,green_boundary&order=hole_number`);
   holeOrder = holes;
   holeSelect.innerHTML = '';
   holes.forEach(h => {
@@ -397,7 +522,7 @@ function selectHoleByIndex(i) {
   if (i < 0 || i >= holeOrder.length) return;
   currentHoleIndex = i;
   const h = holeOrder[i];
-  selectHole(h.hole_id, h.green_lat, h.green_lon, h.par, h.hole_number);
+  selectHole(h.hole_id, h.green_lat, h.green_lon, h.par, h.hole_number, h.green_boundary);
   document.getElementById('prev-hole-btn').disabled = i === 0;
   document.getElementById('next-hole-btn').disabled = i === holeOrder.length - 1;
 }
@@ -407,7 +532,7 @@ document.getElementById('next-hole-btn').addEventListener('click', () => selectH
 
 let currentPar = null, currentHoleNumber = null, lockedTeeId = null;
 
-function selectHole(holeId, lat, lon, par, holeNumber) {
+function selectHole(holeId, lat, lon, par, holeNumber, greenBoundary) {
   currentPar = parseInt(par);
   currentHoleNumber = holeNumber;
   document.getElementById('stat-par').textContent = currentPar;
@@ -421,10 +546,16 @@ function selectHole(holeId, lat, lon, par, holeNumber) {
   });
   currentHoleId = holeId;
   currentGreen = { lat: parseFloat(lat), lon: parseFloat(lon) };
+  currentGreenBoundary = greenBoundary || null;
   cachedElevDiffYards = null;
   holeSelect.value = holeId;
   if (!greenMarker) greenMarker = new mapboxgl.Marker({ color: '#5f9fd4' }).setLngLat([currentGreen.lon, currentGreen.lat]).addTo(map);
   else greenMarker.setLngLat([currentGreen.lon, currentGreen.lat]);
+
+  userMovedTarget = false;
+  currentTarget = computeSmartDefaultTarget();
+  ensureTargetMarker();
+
   updateDistanceDisplay();
   updateMapView(true);
   loadExistingHoleScore();
@@ -635,7 +766,43 @@ function enterRoundScreen(courseId, courseName) {
   mapboxgl.accessToken = MAPBOX_TOKEN;
   map = new mapboxgl.Map({ container: 'map', style: 'mapbox://styles/mapbox/satellite-v9', center: [-84.4569, 39.1031], zoom: 16 });
   map.on('load', loadHolesForLockedCourse);
+  map.on('click', (e) => {
+    currentTarget = { lat: e.lngLat.lat, lon: e.lngLat.lng };
+    userMovedTarget = true;
+    ensureTargetMarker();
+    updateDistanceDisplay();
+  });
+  loadBagClubsForRound();
 }
+
+async function loadBagClubsForRound() {
+  try {
+    const bags = await supabaseRequest('GET', `bags?player_id=eq.${playerId}&active=eq.true&select=bag_id`);
+    if (bags.length === 0) return;
+    bagClubs = await supabaseRequest('GET', `clubs?bag_id=eq.${bags[0].bag_id}&select=club_id,club_type,typical_yardage&order=typical_yardage.desc.nullslast`);
+    const select = document.getElementById('club-select');
+    select.innerHTML = '<option value="">No club</option>';
+    bagClubs.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.club_id;
+      opt.textContent = c.typical_yardage ? `${c.club_type} (${c.typical_yardage}y)` : c.club_type;
+      opt.dataset.yardage = c.typical_yardage || '';
+      select.appendChild(opt);
+    });
+  } catch (e) {
+    document.getElementById('status').textContent = 'Failed to load clubs: ' + e.message;
+  }
+}
+
+document.getElementById('club-select').addEventListener('change', (e) => {
+  const opt = e.target.selectedOptions[0];
+  selectedClubYardage = opt && opt.dataset.yardage ? parseFloat(opt.dataset.yardage) : null;
+  if (!userMovedTarget) {
+    currentTarget = computeSmartDefaultTarget();
+    ensureTargetMarker();
+    updateDistanceDisplay();
+  }
+});
 
 async function resumeExistingRound() {
   const rounds = await supabaseRequest('GET', `rounds?round_id=eq.${roundId}&select=tee_id`);

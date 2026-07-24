@@ -41,9 +41,9 @@ from backend.db import _load_local_env, connect
 # CONFIG -- edit these three values for each course you import
 # =====================================================
 
-GOLFCOURSEAPI_COURSE_ID = 4822          # the "id" field from your earlier /v1/search or /v1/courses/{id} test
-GEOJSON_PATH = r"C:\Users\grube\Downloads\sharon-woods.geojson"  # path to the combined green/tee/hole export you saved
-COURSE_LABEL = "Sharon Woods Golf Course"     # just for the printed summary, not stored
+GOLFCOURSEAPI_COURSE_ID = 4899          # the "id" field from your earlier /v1/search or /v1/courses/{id} test
+GEOJSON_PATH = "reeves_export.geojson"  # path to the combined green/tee/hole export you saved
+COURSE_LABEL = "Reeves Golf Course"     # just for the printed summary, not stored
 
 # =====================================================
 
@@ -92,7 +92,7 @@ def load_osm_export(path: str) -> dict:
         if golf_tag == "green" and feature["geometry"]["type"] == "Polygon":
             ring = feature["geometry"]["coordinates"][0]
             lat, lon = polygon_centroid(ring)
-            greens.append({"lat": lat, "lon": lon})
+            greens.append({"lat": lat, "lon": lon, "ring": ring})
         elif golf_tag == "hole" and feature["geometry"]["type"] == "LineString":
             coords = feature["geometry"]["coordinates"]
             holes.append(
@@ -127,7 +127,12 @@ def match_greens_to_holes(osm: dict) -> dict[int, dict]:
         if distance > 60:  # meters -- a green shouldn't be this far from its own hole line
             print(f"  WARNING: hole {hole['ref']} nearest green is {distance:.0f}m away -- check manually")
 
-        matched[hole["ref"]] = {"par": hole["par"], "green_lat": green["lat"], "green_lon": green["lon"]}
+        matched[hole["ref"]] = {
+            "par": hole["par"],
+            "green_lat": green["lat"],
+            "green_lon": green["lon"],
+            "green_boundary": green["ring"],
+        }
 
     return matched
 
@@ -178,14 +183,15 @@ def import_course(course_id: int, geojson_path: str, label: str) -> None:
                 par = osm_match["par"] if osm_match else hole_from_api["par"]
                 green_lat = osm_match["green_lat"] if osm_match else None
                 green_lon = osm_match["green_lon"] if osm_match else None
+                green_boundary = json.dumps(osm_match["green_boundary"]) if osm_match else None
 
                 cur.execute(
                     """
-                    INSERT INTO holes (course_id, hole_number, par, green_lat, green_lon)
-                    VALUES (%s, %s, %s, %s, %s)
+                    INSERT INTO holes (course_id, hole_number, par, green_lat, green_lon, green_boundary)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                     RETURNING hole_id
                     """,
-                    (new_course_id, i, par, green_lat, green_lon),
+                    (new_course_id, i, par, green_lat, green_lon, green_boundary),
                 )
                 hole_id_by_number[i] = cur.fetchone()["hole_id"]
 

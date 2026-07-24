@@ -278,7 +278,8 @@ function addClubRow(club) {
     <input class="club-model" value="${club.model || ''}">
     <label>Loft</label>
     <input class="club-loft" type="number" step="0.1" value="${club.loft ?? ''}">
-    <label>Typical yardage</label>
+    <label>Typical distance (yds)</label>
+    <p style="font-size:11px; color:var(--text-muted); margin:2px 0 4px;">However far this club normally gets you, roll included -- not a launch-monitor carry number.</p>
     <input class="club-yardage" type="number" value="${club.typical_yardage ?? ''}">
     <label>Shaft model</label>
     <input class="club-shaft-model" value="${club.shaft_model || ''}">
