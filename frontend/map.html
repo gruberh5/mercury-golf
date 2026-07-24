@@ -74,6 +74,9 @@
   .icon-chip.selected { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
   #scorecard-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 41; background: #22272e; border-radius: 20px 20px 0 0; padding: 18px 18px 24px; box-sizing: border-box; transform: translateY(100%); transition: transform .22s ease-out; font-family: 'Archivo', sans-serif; max-height: 75vh; overflow-y: auto; }
   #scorecard-sheet.open { transform: translateY(0); }
+  #breakdown-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 41; background: #22272e; border-radius: 20px 20px 0 0; padding: 18px 18px 24px; box-sizing: border-box; transform: translateY(100%); transition: transform .22s ease-out; font-family: 'Archivo', sans-serif; max-height: 75vh; overflow-y: auto; }
+  #breakdown-sheet.open { transform: translateY(0); }
+  #breakdown-sheet h3 { display: flex; justify-content: space-between; align-items: center; font-size: 15px; margin: 0 0 14px; }
   #scorecard-sheet h3 { font-size: 15px; font-weight: 700; margin: 0 0 14px; display: flex; justify-content: space-between; align-items: center; }
   .scorecard-wrap { overflow-x: auto; }
   .scorecard-table { border-collapse: collapse; font-size: 13px; white-space: nowrap; }
@@ -131,6 +134,10 @@
     <h3><span>Scorecard</span><span class="close-x" id="close-scorecard-btn">&times;</span></h3>
     <div id="scorecard-course-info" style="font-size:12px; color:var(--text-faint); margin:-8px 0 14px;"></div>
     <div class="scorecard-wrap"><div id="scorecard-table"></div></div>
+  </div>
+  <div id="breakdown-sheet">
+    <h3><span>How we got this number</span><span class="close-x" id="close-breakdown-btn">&times;</span></h3>
+    <div id="breakdown-content"></div>
   </div>
   <div id="score-sheet">
     <h3><span id="score-sheet-title">Hole 1</span><span class="close-x" id="close-sheet-btn">&times;</span></h3>
@@ -448,6 +455,7 @@ function ensureTargetMarker() {
         document.getElementById('target-label-adjusted').textContent = '';
       }
       updateFrontMiddleBackDisplay();
+      updateLayupLine({ lat, lon });
     });
 
     targetMarker.on('dragend', () => {
@@ -508,12 +516,15 @@ function updateFrontMiddleBackDisplay() {
   document.getElementById('back-bubble').innerHTML = `<div style="font-weight:700; font-size:14px;">${Math.round(fmb.back)}y</div><div style="font-size:9px; color:#ffb877;">Back</div>`;
 }
 
+let lastRawYards = null, lastElevDiffYards = null;
+
 async function updateDistanceDisplay() {
   if (!currentTarget || !lastPlayerPos) return;
   ensureTargetMarker();
 
   const rawMeters = haversineMeters(lastPlayerPos.lat, lastPlayerPos.lon, currentTarget.lat, currentTarget.lon);
   const rawYards = metersToYards(rawMeters);
+  lastRawYards = rawYards;
   document.getElementById('target-label-raw').textContent = Math.round(rawYards) + 'y';
 
   const now = Date.now();
@@ -521,14 +532,64 @@ async function updateDistanceDisplay() {
     lastElevFetchTime = now;
     cachedElevDiffYards = await fetchElevationDiffYards(lastPlayerPos.lat, lastPlayerPos.lon, currentTarget.lat, currentTarget.lon);
   }
+  lastElevDiffYards = cachedElevDiffYards;
   const adjustedEl = document.getElementById('target-label-adjusted');
   if (cachedElevDiffYards != null) {
     const adjustedYards = rawYards + cachedElevDiffYards;
-    const direction = cachedElevDiffYards > 1 ? 'uphill' : cachedElevDiffYards < -1 ? 'downhill' : 'flat';
-    adjustedEl.textContent = `${Math.round(adjustedYards)}y (${direction})`;
-  } else { adjustedEl.textContent = ''; }
+    adjustedEl.textContent = `${Math.round(adjustedYards)}y adjusted`;
+    adjustedEl.style.cursor = 'pointer';
+    adjustedEl.style.textDecoration = 'underline';
+    adjustedEl.onclick = (e) => { e.stopPropagation(); openAdjustedBreakdown(); };
+  } else { adjustedEl.textContent = ''; adjustedEl.onclick = null; }
 
   updateFrontMiddleBackDisplay();
+  updateLayupLine();
+}
+
+let layupBubble = null;
+
+function updateLayupLine(overridePoint) {
+  const source = map ? map.getSource('layup-line') : null;
+  if (!source) return;
+  const point = overridePoint || currentTarget;
+
+  if (isLockedToGreenCenter || !currentGreen || !point) {
+    source.setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: [] } });
+    if (layupBubble) { layupBubble.remove(); layupBubble = null; }
+    return;
+  }
+
+  source.setData({
+    type: 'Feature',
+    geometry: { type: 'LineString', coordinates: [[point.lon, point.lat], [currentGreen.lon, currentGreen.lat]] }
+  });
+
+  const remainingYards = metersToYards(haversineMeters(point.lat, point.lon, currentGreen.lat, currentGreen.lon));
+  const midLat = (point.lat + currentGreen.lat) / 2;
+  const midLon = (point.lon + currentGreen.lon) / 2;
+
+  if (!layupBubble) {
+    const el = document.createElement('div');
+    el.id = 'layup-bubble';
+    el.style.cssText = 'background:rgba(20,24,29,.85); color:#ffb877; padding:4px 12px; border-radius:20px; text-align:center; font-family:"Archivo",sans-serif; white-space:nowrap;';
+    layupBubble = new mapboxgl.Marker({ element: el, anchor: 'center' }).setLngLat([midLon, midLat]).addTo(map);
+  } else {
+    layupBubble.setLngLat([midLon, midLat]);
+  }
+  document.getElementById('layup-bubble').innerHTML = `<div style="font-weight:700; font-size:14px;">${Math.round(remainingYards)}y</div><div style="font-size:9px;">left to green</div>`;
+}
+
+function openAdjustedBreakdown() {
+  if (lastRawYards == null) return;
+  const adjustedYards = lastRawYards + (lastElevDiffYards || 0);
+  const direction = lastElevDiffYards > 1 ? 'uphill' : lastElevDiffYards < -1 ? 'downhill' : 'flat';
+  document.getElementById('breakdown-content').innerHTML = `
+    <div class="scorecard-row"><span>Raw distance</span><span class="sc-score">${Math.round(lastRawYards)}y</span></div>
+    <div class="scorecard-row"><span>Elevation change</span><span class="sc-score">${lastElevDiffYards > 0 ? '+' : ''}${Math.round(lastElevDiffYards || 0)}y (${direction})</span></div>
+    <div class="scorecard-row total"><span>Adjusted distance</span><span class="sc-score">${Math.round(adjustedYards)}y</span></div>
+  `;
+  document.getElementById('breakdown-sheet').classList.add('open');
+  document.getElementById('score-sheet-backdrop').classList.add('open');
 }
 
 function updateMapView(force) {
@@ -746,7 +807,7 @@ function closeSheet() {
 }
 document.getElementById('open-score-btn').addEventListener('click', openSheet);
 document.getElementById('close-sheet-btn').addEventListener('click', closeSheet);
-document.getElementById('score-sheet-backdrop').addEventListener('click', () => { closeSheet(); closeScorecard(); });
+document.getElementById('score-sheet-backdrop').addEventListener('click', () => { closeSheet(); closeScorecard(); closeBreakdown(); });
 
 async function openScorecard() {
   const tableEl = document.getElementById('scorecard-table');
@@ -803,6 +864,11 @@ async function openScorecard() {
     tableEl.innerHTML = `<p style="color:#f88;">Failed to load: ${e.message}</p>`;
   }
 }
+function closeBreakdown() {
+  document.getElementById('breakdown-sheet').classList.remove('open');
+}
+document.getElementById('close-breakdown-btn').addEventListener('click', closeBreakdown);
+
 function closeScorecard() {
   document.getElementById('scorecard-sheet').classList.remove('open');
 }
@@ -845,6 +911,11 @@ function enterRoundScreen(courseId, courseName) {
     map.addLayer({
       id: 'shot-line', type: 'line', source: 'shot-line',
       paint: { 'line-color': '#ffffff', 'line-width': 2, 'line-dasharray': [2, 2] }
+    });
+    map.addSource('layup-line', { type: 'geojson', data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [] } } });
+    map.addLayer({
+      id: 'layup-line', type: 'line', source: 'layup-line',
+      paint: { 'line-color': '#ffb877', 'line-width': 2, 'line-dasharray': [1, 2] }
     });
     loadHolesForLockedCourse();
   });
