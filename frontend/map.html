@@ -125,11 +125,6 @@
   <div id="status"></div>
   <div id="map"></div>
 
-  <div id="distance-panel">
-    <div class="raw" id="raw-distance">--</div>
-    <div class="adjusted" id="adjusted-distance"></div>
-  </div>
-
   <div id="fmb-panel" style="display:none;">
     <div><span id="fmb-front">--</span><span class="fmb-lbl">Front</span></div>
     <div><span id="fmb-middle">--</span><span class="fmb-lbl">Mid</span></div>
@@ -398,42 +393,70 @@ async function fetchElevationDiffYards(playerLat, playerLon, greenLat, greenLon)
 
 function computeSmartDefaultTarget() {
   if (!currentGreen) return null;
-  if (!lastPlayerPos) return { lat: currentGreen.lat, lon: currentGreen.lon };
+  if (!lastPlayerPos) { isLockedToGreenCenter = true; return { lat: currentGreen.lat, lon: currentGreen.lon }; }
 
   const distToGreenMeters = haversineMeters(lastPlayerPos.lat, lastPlayerPos.lon, currentGreen.lat, currentGreen.lon);
   const CLOSE_THRESHOLD_METERS = 230; // roughly 250 yards
 
   if (currentPar === 3 || distToGreenMeters <= CLOSE_THRESHOLD_METERS || !selectedClubYardage) {
+    isLockedToGreenCenter = true;
     return { lat: currentGreen.lat, lon: currentGreen.lon };
   }
 
+  isLockedToGreenCenter = false;
   const bearing = bearingDegrees(lastPlayerPos.lat, lastPlayerPos.lon, currentGreen.lat, currentGreen.lon);
   const clubDistanceMeters = selectedClubYardage / 1.09361;
   return destinationPoint(lastPlayerPos.lat, lastPlayerPos.lon, bearing, clubDistanceMeters);
 }
 
+let isLockedToGreenCenter = false;
+
 function ensureTargetMarker() {
   if (!currentTarget || !map) return;
   if (!targetMarker) {
     const el = document.createElement('div');
-    el.style.width = '44px'; el.style.height = '44px';
-    el.style.display = 'flex'; el.style.alignItems = 'center'; el.style.justifyContent = 'center';
+    el.style.width = '60px'; el.style.height = '60px';
+    el.style.display = 'flex'; el.style.flexDirection = 'column'; el.style.alignItems = 'center'; el.style.justifyContent = 'center';
     el.innerHTML = `
+      <div id="target-label" style="background:rgba(20,24,29,.85); color:white; padding:3px 9px; border-radius:8px; margin-bottom:2px; white-space:nowrap; font-family:'Archivo',sans-serif; text-align:center;">
+        <div id="target-label-raw" style="font-weight:700; font-size:14px; line-height:1.2;">--y</div>
+        <div id="target-label-adjusted" style="font-size:10px; color:#ffb877; line-height:1.2;"></div>
+      </div>
       <svg width="32" height="32" viewBox="0 0 32 32">
-        <circle cx="16" cy="16" r="13" fill="none" stroke="#ff9f43" stroke-width="2"/>
-        <line x1="16" y1="2" x2="16" y2="9" stroke="#ff9f43" stroke-width="2"/>
-        <line x1="16" y1="23" x2="16" y2="30" stroke="#ff9f43" stroke-width="2"/>
-        <line x1="2" y1="16" x2="9" y2="16" stroke="#ff9f43" stroke-width="2"/>
-        <line x1="23" y1="16" x2="30" y2="16" stroke="#ff9f43" stroke-width="2"/>
-        <circle cx="16" cy="16" r="2.5" fill="#ff9f43"/>
+        <circle cx="16" cy="16" r="13" fill="none" stroke="#ffffff" stroke-width="2"/>
+        <line x1="16" y1="2" x2="16" y2="9" stroke="#ffffff" stroke-width="2"/>
+        <line x1="16" y1="23" x2="16" y2="30" stroke="#ffffff" stroke-width="2"/>
+        <line x1="2" y1="16" x2="9" y2="16" stroke="#ffffff" stroke-width="2"/>
+        <line x1="23" y1="16" x2="30" y2="16" stroke="#ffffff" stroke-width="2"/>
+        <circle cx="16" cy="16" r="2.5" fill="#ffffff"/>
       </svg>
     `;
-    targetMarker = new mapboxgl.Marker({ element: el, draggable: true, anchor: 'center' })
+    targetMarker = new mapboxgl.Marker({ element: el, draggable: true, anchor: 'bottom' })
       .setLngLat([currentTarget.lon, currentTarget.lat]).addTo(map);
+
     targetMarker.on('drag', () => {
       const ll = targetMarker.getLngLat();
-      updateShotLine({ lat: ll.lat, lon: ll.lng });
+      let lat = ll.lat, lon = ll.lng;
+
+      const SNAP_RADIUS_METERS = 4; // roughly 13 feet
+      const distToGreenCenter = currentGreen ? haversineMeters(lat, lon, currentGreen.lat, currentGreen.lon) : Infinity;
+      if (distToGreenCenter <= SNAP_RADIUS_METERS) {
+        lat = currentGreen.lat; lon = currentGreen.lon;
+        targetMarker.setLngLat([lon, lat]);
+        isLockedToGreenCenter = true;
+      } else {
+        isLockedToGreenCenter = false;
+      }
+
+      updateShotLine({ lat, lon });
+      if (lastPlayerPos) {
+        const liveYards = metersToYards(haversineMeters(lastPlayerPos.lat, lastPlayerPos.lon, lat, lon));
+        document.getElementById('target-label-raw').textContent = Math.round(liveYards) + 'y';
+        document.getElementById('target-label-adjusted').textContent = '';
+      }
+      document.getElementById('fmb-panel').style.display = isLockedToGreenCenter ? 'flex' : 'none';
     });
+
     targetMarker.on('dragend', () => {
       const ll = targetMarker.getLngLat();
       currentTarget = { lat: ll.lat, lon: ll.lng };
@@ -458,7 +481,7 @@ function updateShotLine(targetPos) {
 
 function updateFrontMiddleBackDisplay() {
   const panel = document.getElementById('fmb-panel');
-  if (!currentGreenBoundary || !lastPlayerPos || !currentGreen) { panel.style.display = 'none'; return; }
+  if (!isLockedToGreenCenter || !currentGreenBoundary || !lastPlayerPos || !currentGreen) { panel.style.display = 'none'; return; }
   const fmb = computeFrontMiddleBackYards(lastPlayerPos.lat, lastPlayerPos.lon, currentGreen.lat, currentGreen.lon, currentGreenBoundary);
   if (!fmb) { panel.style.display = 'none'; return; }
   panel.style.display = 'flex';
@@ -473,18 +496,18 @@ async function updateDistanceDisplay() {
 
   const rawMeters = haversineMeters(lastPlayerPos.lat, lastPlayerPos.lon, currentTarget.lat, currentTarget.lon);
   const rawYards = metersToYards(rawMeters);
-  document.getElementById('raw-distance').textContent = Math.round(rawYards) + 'y';
+  document.getElementById('target-label-raw').textContent = Math.round(rawYards) + 'y';
 
   const now = Date.now();
   if (cachedElevDiffYards === null || now - lastElevFetchTime > 30000) {
     lastElevFetchTime = now;
     cachedElevDiffYards = await fetchElevationDiffYards(lastPlayerPos.lat, lastPlayerPos.lon, currentTarget.lat, currentTarget.lon);
   }
-  const adjustedEl = document.getElementById('adjusted-distance');
+  const adjustedEl = document.getElementById('target-label-adjusted');
   if (cachedElevDiffYards != null) {
     const adjustedYards = rawYards + cachedElevDiffYards;
     const direction = cachedElevDiffYards > 1 ? 'uphill' : cachedElevDiffYards < -1 ? 'downhill' : 'flat';
-    adjustedEl.textContent = `plays like ${Math.round(adjustedYards)}y (${direction})`;
+    adjustedEl.textContent = `${Math.round(adjustedYards)}y (${direction})`;
   } else { adjustedEl.textContent = ''; }
 
   updateFrontMiddleBackDisplay();
