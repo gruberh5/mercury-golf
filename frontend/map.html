@@ -282,8 +282,8 @@ setupTeeSelect.addEventListener('change', () => { startRoundBtn.disabled = !setu
 startRoundBtn.addEventListener('click', async () => {
   setupStatus.style.color = '#f88'; setupStatus.textContent = 'Starting round...';
   try {
-    const bags = await supabaseRequest('GET', `bags?player_id=eq.${playerId}&select=bag_id&order=created_at`);
-    if (bags.length === 0) { setupStatus.textContent = 'No bag found -- complete your profile first.'; return; }
+    const bags = await supabaseRequest('GET', `bags?player_id=eq.${playerId}&active=eq.true&select=bag_id`);
+    if (bags.length === 0) { setupStatus.textContent = 'No active bag set -- go mark one active in your profile first.'; return; }
     const bagId = bags[0].bag_id;
     const created = await supabaseRequest('POST', 'rounds', {
       player_id: playerId, bag_id: bagId, tee_id: setupTeeSelect.value, played_at: new Date().toISOString()
