@@ -65,18 +65,28 @@ function clearSession() {
   localStorage.removeItem('mercuryPlayerId');
   localStorage.removeItem('mercuryPlayerName');
 }
+let refreshPromise = null;
+
 async function refreshSession() {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return false;
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-    method: 'POST',
-    headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: refreshToken })
-  });
-  if (!res.ok) return false;
-  const data = await res.json();
-  setSession(data.access_token, data.refresh_token);
-  return true;
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) return false;
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken })
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    setSession(data.access_token, data.refresh_token);
+    return true;
+  })();
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshPromise = null;
+  }
 }
 async function supabaseRequest(method, path, body, _isRetry) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {

@@ -12,7 +12,7 @@
 <script>
   const MAPBOX_TOKEN = "pk.eyJ1IjoiaGdydWI1IiwiYSI6ImNtcnZlN3IyMjBoNXozMHEzYzA0bTJnMncifQ.Z2po4OoEzFiIXjK_XTnAJw";
   const SUPABASE_URL = "https://qzkhficwcpicglywmcid.supabase.co";
-  const SUPABASE_KEY = "PASTsb_publishable_t2IT_8t6w8cYP5aipFHWVQ_ESPnRjKGE_YOUR_SUPABASE_PUBLISHABLE_KEY_HERE";
+  const SUPABASE_KEY = "sb_publishable_t2IT_8t6w8cYP5aipFHWVQ_ESPnRjKG";
 </script>
 <style>
   html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
@@ -197,18 +197,28 @@ function clearSession() {
   localStorage.removeItem('mercuryPlayerId');
   localStorage.removeItem('mercuryPlayerName');
 }
+let refreshPromise = null;
+
 async function refreshSession() {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return false;
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-    method: 'POST',
-    headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: refreshToken })
-  });
-  if (!res.ok) return false;
-  const data = await res.json();
-  setSession(data.access_token, data.refresh_token);
-  return true;
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) return false;
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken })
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    setSession(data.access_token, data.refresh_token);
+    return true;
+  })();
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshPromise = null;
+  }
 }
 
 async function supabaseRequest(method, path, body, _isRetry) {
