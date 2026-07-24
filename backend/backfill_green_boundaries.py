@@ -28,8 +28,8 @@ from backend.db import connect
 # =====================================================
 # CONFIG -- edit for each course you're backfilling
 # =====================================================
-COURSE_ID = 2                          # the course_id from your `courses` table (not the GolfCourseAPI id)
-GEOJSON_PATH = GEOJSON_PATH = r"C:\Users\grube\Downloads\sharon-woods.geojson"  # your saved combined green/tee/hole export for this course
+COURSE_ID = 4              # the course_id from your `courses` table (not the GolfCourseAPI id)
+GEOJSON_PATH = r"C:\Users\grube\Downloads\twin-oaks.geojson"  # your saved combined green/tee/hole export for this course
 # =====================================================
 
 

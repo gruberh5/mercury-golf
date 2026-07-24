@@ -12,7 +12,7 @@
 <script>
   const MAPBOX_TOKEN = "pk.eyJ1IjoiaGdydWI1IiwiYSI6ImNtcnZlN3IyMjBoNXozMHEzYzA0bTJnMncifQ.Z2po4OoEzFiIXjK_XTnAJw";
   const SUPABASE_URL = "https://qzkhficwcpicglywmcid.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_t2IT_8t6w8cYP5aipFHWVQ_ESPnRjKG";
+  const SUPABASE_KEY = "PASTsb_publishable_t2IT_8t6w8cYP5aipFHWVQ_ESPnRjKGE_YOUR_SUPABASE_PUBLISHABLE_KEY_HERE";
 </script>
 <style>
   html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
@@ -593,7 +593,24 @@ function openAdjustedBreakdown() {
 }
 
 function updateMapView(force) {
-  if (!currentGreen || !lastPlayerPos || !map) return;
+  if (!lastPlayerPos || !map) return;
+
+  if (!currentGreen) {
+    // No auto-detected green for this hole -- just center on the player's
+    // real position so the map is still usable, oriented toward the
+    // manually-placed target if one exists yet.
+    if (!force && lastFlownPos) {
+      const movedMeters = haversineMeters(lastPlayerPos.lat, lastPlayerPos.lon, lastFlownPos.lat, lastFlownPos.lon);
+      if (movedMeters < 15) return;
+    }
+    const bearing = currentTarget
+      ? bearingDegrees(lastPlayerPos.lat, lastPlayerPos.lon, currentTarget.lat, currentTarget.lon)
+      : 0;
+    map.easeTo({ center: [lastPlayerPos.lon, lastPlayerPos.lat], zoom: 17, bearing, duration: 1000 });
+    lastFlownPos = { ...lastPlayerPos };
+    return;
+  }
+
   if (!force && lastFlownPos) {
     const movedMeters = haversineMeters(lastPlayerPos.lat, lastPlayerPos.lon, lastFlownPos.lat, lastFlownPos.lon);
     if (movedMeters < 15) return;
@@ -676,21 +693,36 @@ function selectHole(holeId, lat, lon, par, holeNumber, greenBoundary) {
     }
   });
   currentHoleId = holeId;
-  currentGreen = { lat: parseFloat(lat), lon: parseFloat(lon) };
+  const hasValidGreen = lat != null && lon != null && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lon));
+  currentGreen = hasValidGreen ? { lat: parseFloat(lat), lon: parseFloat(lon) } : null;
   currentGreenBoundary = greenBoundary || null;
   cachedElevDiffYards = null;
   holeSelect.value = holeId;
-  if (!greenMarker) {
-    const dotEl = document.createElement('div');
-    dotEl.style.width = '14px'; dotEl.style.height = '14px'; dotEl.style.borderRadius = '50%';
-    dotEl.style.background = 'rgba(255,255,255,.55)'; dotEl.style.border = '2px solid rgba(255,255,255,.85)';
-    greenMarker = new mapboxgl.Marker({ element: dotEl, anchor: 'center' }).setLngLat([currentGreen.lon, currentGreen.lat]).addTo(map);
+
+  if (currentGreen) {
+    if (!greenMarker) {
+      const dotEl = document.createElement('div');
+      dotEl.style.width = '14px'; dotEl.style.height = '14px'; dotEl.style.borderRadius = '50%';
+      dotEl.style.background = 'rgba(255,255,255,.55)'; dotEl.style.border = '2px solid rgba(255,255,255,.85)';
+      greenMarker = new mapboxgl.Marker({ element: dotEl, anchor: 'center' }).setLngLat([currentGreen.lon, currentGreen.lat]).addTo(map);
+    } else {
+      greenMarker.setLngLat([currentGreen.lon, currentGreen.lat]);
+    }
+  } else if (greenMarker) {
+    greenMarker.remove();
+    greenMarker = null;
   }
-  else greenMarker.setLngLat([currentGreen.lon, currentGreen.lat]);
 
   userMovedTarget = false;
   currentTarget = computeSmartDefaultTarget();
-  ensureTargetMarker();
+  if (currentTarget) ensureTargetMarker();
+  else if (targetMarker) { targetMarker.remove(); targetMarker = null; }
+
+  if (!currentGreen) {
+    document.getElementById('target-label-raw') && (document.getElementById('status').textContent = 'No auto-detected green for this hole -- tap the map to set your target.');
+  } else {
+    document.getElementById('status').textContent = '';
+  }
 
   updateDistanceDisplay();
   updateMapView(true);
@@ -934,6 +966,7 @@ function enterRoundScreen(courseId, courseName) {
     userMovedTarget = true;
     ensureTargetMarker();
     updateDistanceDisplay();
+    updateMapView(true);
   });
   loadBagClubsForRound();
 }
