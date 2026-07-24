@@ -269,11 +269,11 @@ setupCourseSelect.addEventListener('change', async () => {
   if (!courseId) return;
   setupTeeSelect.innerHTML = '<option value="">Loading tees...</option>';
   try {
-    const tees = await supabaseRequest('GET', `tees?course_id=eq.${courseId}&select=tee_id,tee_name,gender&order=tee_name`);
+    const tees = await supabaseRequest('GET', `tees?course_id=eq.${courseId}&select=tee_id,tee_name,gender,total_yards,course_rating,slope_rating&order=total_yards.desc`);
     setupTeeSelect.innerHTML = '<option value="">Select a tee</option>';
     tees.forEach(t => {
       const opt = document.createElement('option');
-      opt.value = t.tee_id; opt.textContent = `${t.tee_name} (${t.gender})`;
+      opt.value = t.tee_id; opt.textContent = `${t.tee_name} (${t.gender}) -- ${t.total_yards}y, ${t.course_rating}/${t.slope_rating}`;
       setupTeeSelect.appendChild(opt);
     });
     setupTeeSelect.disabled = false;
