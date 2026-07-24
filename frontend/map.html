@@ -10,9 +10,9 @@
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js"></script>
 <link href="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css" rel="stylesheet">
 <script>
-  const MAPBOX_TOKEN = "pk.eyJ1IjoiaGdydWI1IiwiYSI6ImNtcnZlN3IyMjBoNXozMHEzYzA0bTJnMncifQ.Z2po4OoEzFiIXjK_XTnAJw";
-  const SUPABASE_URL = "https://qzkhficwcpicglywmcid.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_t2IT_8t6w8cYP5aipFHWVQ_ESPnRjKG";
+  const MAPBOX_TOKEN = "PASTE_YOUR_MAPBOX_TOKEN_HERE";
+  const SUPABASE_URL = "PASTE_YOUR_SUPABASE_URL_HERE";
+  const SUPABASE_KEY = "PASTE_YOUR_SUPABASE_PUBLISHABLE_KEY_HERE";
 </script>
 <style>
   html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
@@ -107,7 +107,6 @@
 
 <div id="round-screen" style="display:none;">
   <div id="controls">
-    <a href="index.html" id="back-arrow">&lsaquo;</a>
     <select id="hole-select"><option value="">--</option></select>
     <div class="stat-col"><div class="num" id="stat-par">--</div><div class="lbl">Par</div></div>
     <div class="stat-col"><div class="num" id="stat-yds">--</div><div class="lbl">Yds</div></div>
@@ -134,6 +133,7 @@
     <h3><span>Scorecard</span><span class="close-x" id="close-scorecard-btn">&times;</span></h3>
     <div id="scorecard-course-info" style="font-size:12px; color:var(--text-faint); margin:-8px 0 14px;"></div>
     <div class="scorecard-wrap"><div id="scorecard-table"></div></div>
+    <button id="quit-round-btn" type="button" style="width:100%; margin-top:18px; padding:12px; border-radius:12px; border:none; background:rgba(226,75,74,.12); color:#f0999b; font-weight:600; font-family:'Archivo',sans-serif;">Quit round</button>
   </div>
   <div id="breakdown-sheet">
     <h3><span>How we got this number</span><span class="close-x" id="close-breakdown-btn">&times;</span></h3>
@@ -875,6 +875,12 @@ function closeScorecard() {
 document.getElementById('scorecard-btn').addEventListener('click', openScorecard);
 document.getElementById('close-scorecard-btn').addEventListener('click', closeScorecard);
 
+document.getElementById('quit-round-btn').addEventListener('click', () => {
+  if (confirm('Quit this round? Your saved scores stay recorded, but you\'ll leave the live round screen.')) {
+    window.location.href = 'index.html';
+  }
+});
+
 document.getElementById('caddie-btn').addEventListener('click', () => {
   alert('AI Caddie -- coming soon.');
 });
@@ -958,6 +964,7 @@ document.getElementById('club-select').addEventListener('change', (e) => {
 });
 
 async function resumeExistingRound() {
+  playerId = await resolveCurrentPlayer();
   const rounds = await supabaseRequest('GET', `rounds?round_id=eq.${roundId}&select=tee_id`);
   const teeId = rounds[0].tee_id;
   lockedTeeId = teeId;
