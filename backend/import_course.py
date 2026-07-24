@@ -41,9 +41,9 @@ from backend.db import _load_local_env, connect
 # CONFIG -- edit these three values for each course you import
 # =====================================================
 
-GOLFCOURSEAPI_COURSE_ID = 17465          # the "id" field from your earlier /v1/search or /v1/courses/{id} test
-GEOJSON_PATH = r"C:\Users\grube\Downloads\raintree-north-2.geojson"  # path to the combined green/tee/hole export you saved
-COURSE_LABEL = "Raintree_North"     # just for the printed summary, not stored
+GOLFCOURSEAPI_COURSE_ID = 13035          # the "id" field from your earlier /v1/search or /v1/courses/{id} test
+GEOJSON_PATH = r"C:\Users\grube\Downloads\empty_placeholder.geojson"  # path to the combined green/tee/hole export you saved
+COURSE_LABEL = "Boone Links - Brook and Ridge"     # just for the printed summary, not stored
 
 # =====================================================
 

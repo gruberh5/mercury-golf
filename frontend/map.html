@@ -263,11 +263,12 @@ async function initSetupScreen() {
     return;
   }
   try {
-    const courses = await supabaseRequest('GET', 'courses?select=course_id,course_name&order=course_name');
+    const courses = await supabaseRequest('GET', 'courses?select=course_id,course_name,club_name&order=course_name');
     setupCourseSelect.innerHTML = '<option value="">Select a course</option>';
     courses.forEach(c => {
       const opt = document.createElement('option');
-      opt.value = c.course_id; opt.textContent = c.course_name;
+      opt.value = c.course_id;
+      opt.textContent = (c.club_name && c.club_name !== c.course_name) ? `${c.club_name} - ${c.course_name}` : c.course_name;
       setupCourseSelect.appendChild(opt);
     });
   } catch (e) { setupStatus.textContent = 'Failed to load courses: ' + e.message; }
